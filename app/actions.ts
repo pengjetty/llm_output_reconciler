@@ -3,96 +3,163 @@
 import { generateText, type CoreMessage } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { anthropic } from "@ai-sdk/anthropic"
-import { google } from "@ai-sdk/google"
+import { google, createGoogleGenerativeAI } from "@ai-sdk/google"
 import { xai } from "@ai-sdk/xai"
 import type { ModelConfig, RunResult, StoredApiKeys } from "@/lib/types"
-import { calculateDiff } from "@/lib/diff"
+import { calculateDiff, calculateSemanticSimilarity } from "@/lib/diff"
 
+// Enhanced parallel processing with real-time feedback
 export async function runComparison(
   prompt: string,
-  imageInput: string | null, // Base64 or URL
+  imageInput: string | null,
   goldenCopy: string,
   selectedModels: ModelConfig[],
-  apiKeys: StoredApiKeys, // API keys are now passed as an argument
+  apiKeys: StoredApiKeys
 ): Promise<RunResult[]> {
-  const results: RunResult[] = []
+  const total = selectedModels.length
+  let completed = 0
 
-  for (const modelConfig of selectedModels) {
-    const { provider, model } = modelConfig
-    const apiKey = apiKeys[provider]
+  // Create tasks for parallel execution
+  const tasks = selectedModels.map((modelConfig) => 
+    runSingleModel(modelConfig, prompt, imageInput, goldenCopy, apiKeys)
+  )
 
-    if (!apiKey) {
-      results.push({
-        model: model,
-        provider: provider,
-        output: `Error: API key for ${provider} not provided.`,
+  // Execute all models in parallel with timeout
+  const results = await Promise.allSettled(
+    tasks.map(task => 
+      Promise.race([
+        task,
+        new Promise<RunResult>((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
+        )
+      ])
+    )
+  )
+
+  // Process results and handle failures
+  const processedResults: RunResult[] = results.map((result, index) => {
+    completed++
+    const modelConfig = selectedModels[index]
+
+    if (result.status === 'fulfilled') {
+      return result.value
+    } else {
+      console.error(`Model ${modelConfig.provider}/${modelConfig.model} failed:`, result.reason)
+      return {
+        model: modelConfig.model,
+        provider: modelConfig.provider,
+        output: `Error: ${result.reason?.message || "Unknown error"}`,
         diffScore: Number.POSITIVE_INFINITY,
-        diffHtml: `<p class="text-red-500">Error: API key for ${provider} not provided.</p>`,
+        diffHtml: `<p class="text-red-500">Error: ${result.reason?.message || "Unknown error"}</p>`,
         error: true,
-      })
-      continue
-    }
-
-    let llmModel
-    let messages: CoreMessage[] = [{ role: "user", content: prompt }]
-
-    if (imageInput) {
-      messages = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image", image: imageInput },
-          ],
-        },
-      ]
-    }
-
-    try {
-      switch (provider) {
-        case "openai":
-          llmModel = openai(model, { apiKey: apiKey })
-          break
-        case "anthropic":
-          llmModel = anthropic(model, { apiKey: apiKey })
-          break
-        case "google":
-          llmModel = google(model, { apiKey: apiKey })
-          break
-        case "xai":
-          llmModel = xai(model, { apiKey: apiKey })
-          break
-        default:
-          throw new Error(`Unsupported provider: ${provider}`)
       }
+    }
+  })
+  
+  return processedResults
+}
 
-      const { text } = await generateText({
-        model: llmModel,
-        messages: messages,
-      })
+async function runSingleModel(
+  modelConfig: ModelConfig,
+  prompt: string,
+  imageInput: string | null,
+  goldenCopy: string,
+  apiKeys: StoredApiKeys
+): Promise<RunResult> {
+  const { provider, model } = modelConfig
+  const apiKey = apiKeys[provider]
 
-      const { diffScore, diffHtml } = calculateDiff(goldenCopy, text)
 
-      results.push({
-        model: model,
-        provider: provider,
-        output: text,
-        diffScore: diffScore,
-        diffHtml: diffHtml,
-        error: false,
-      })
-    } catch (error: any) {
-      console.error(`Error running model ${provider}/${model}:`, error)
-      results.push({
-        model: model,
-        provider: provider,
-        output: `Error: ${error.message || "Unknown error"}`,
-        diffScore: Number.POSITIVE_INFINITY,
-        diffHtml: `<p class="text-red-500">Error: ${error.message || "Unknown error"}</p>`,
-        error: true,
-      })
+  if (!apiKey) {
+    return {
+      model: model,
+      provider: provider,
+      output: `Error: API key for ${provider} not provided.`,
+      diffScore: Number.POSITIVE_INFINITY,
+      diffHtml: `<p class="text-red-500">Error: API key for ${provider} not provided.</p>`,
+      error: true,
     }
   }
 
-  return results
+  let llmModel
+  let messages: CoreMessage[] = [{ role: "user", content: prompt }]
+
+  if (imageInput) {
+    messages = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image", image: imageInput },
+        ],
+      },
+    ]
+  }
+
+  const startTime = Date.now()
+  
+  try {
+    switch (provider) {
+      case "openai":
+        llmModel = openai(model, { 
+          apiKey: apiKey,
+        })
+        break
+      case "anthropic":
+        llmModel = anthropic(model, { 
+          apiKey: apiKey,
+        })
+        break
+      case "google":
+        const googleAI = createGoogleGenerativeAI({
+          apiKey: apiKey,
+        })
+        llmModel = googleAI(model)
+        break
+      case "xai":
+        llmModel = xai(model, { 
+          apiKey: apiKey,
+        })
+        break
+      default:
+        throw new Error(`Unsupported provider: ${provider}`)
+    }
+
+    const { text } = await generateText({
+      model: llmModel,
+      messages: messages,
+    })
+
+    const executionTime = Date.now() - startTime
+    
+    const diffResult = calculateDiff(goldenCopy, text)
+    const semanticSimilarity = calculateSemanticSimilarity(goldenCopy, text)
+
+    return {
+      model: model,
+      provider: provider,
+      output: text,
+      diffScore: diffResult.diffScore,
+      diffHtml: diffResult.diffHtml,
+      error: false,
+      similarity: diffResult.similarity,
+      levenshteinDistance: diffResult.levenshteinDistance,
+      wordCount: diffResult.wordCount,
+      changes: diffResult.changes,
+      semanticSimilarity: semanticSimilarity,
+      executionTime: executionTime,
+    }
+  } catch (error: any) {
+    console.error(`Error running model ${provider}/${model}:`, error)
+    
+    return {
+      model: model,
+      provider: provider,
+      output: `Error: ${error.message || "Unknown error"}`,
+      diffScore: Number.POSITIVE_INFINITY,
+      diffHtml: `<p class="text-red-500">Error: ${error.message || "Unknown error"}</p>`,
+      error: true,
+      executionTime: Date.now() - startTime,
+    }
+  }
 }

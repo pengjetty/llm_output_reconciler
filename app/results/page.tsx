@@ -1,12 +1,9 @@
 "use client"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-
 import { Label } from "@/components/ui/label"
-
 import type React from "react"
-
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,12 +18,13 @@ import {
   getStorageUsage,
 } from "@/lib/storage"
 import { useToast } from "@/hooks/use-toast"
-import { History, Download, Upload, Trash2, Eye } from "lucide-react"
-import { Progress } from "@/components/ui/progress"
+import { HistorySidebar } from "@/components/history-sidebar"
 import { ResultDetail } from "@/components/result-detail"
+import { useRouter } from "next/navigation"
 
-export default function ResultsPage() {
+function ResultsPageContent() {
   const { toast } = useToast()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [runs, setRuns] = useState<Run[]>([])
   const [tests, setTests] = useState<Test[]>([])
@@ -141,78 +139,39 @@ export default function ResultsPage() {
     }
   }
 
-  const getTestNameForRun = (run: Run) => {
-    const test = tests.find((t) => t.id === run.testId)
-    return test ? test.name : "Unknown Test"
+  const handleRerunTest = (run: Run) => {
+    const test = tests.find(t => t.id === run.testId)
+    if (!test) {
+      toast({
+        title: "Test Not Found",
+        description: "The associated test could not be found. It may have been deleted.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Navigate to runs page with the test pre-selected
+    router.push(`/runs?testId=${test.id}`)
+    toast({
+      title: "Test Loaded",
+      description: `Test "${test.name}" has been loaded in the runs page. You can now select models and run the comparison.`,
+    })
   }
 
   return (
     <div className="flex min-h-[calc(100vh-64px)]">
-      {" "}
-      {/* Adjust height for navbar */}
-      <aside className="w-64 bg-gray-100 dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <History className="mr-2 h-5 w-5" /> Run History
-        </h2>
-        <div className="mb-4">
-          <Label className="text-sm">
-            Storage Usage: {storageUsage.toFixed(2)} MB / {MAX_STORAGE_MB} MB
-          </Label>
-          <Progress value={(storageUsage / MAX_STORAGE_MB) * 100} className="w-full mt-1" />
-          {storageUsage >= MAX_STORAGE_MB && (
-            <p className="text-xs text-red-500 mt-1">
-              Storage limit reached. Oldest data may be removed automatically.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 mb-4">
-          <Button variant="outline" onClick={handleExportData}>
-            <Download className="mr-2 h-4 w-4" /> Export All Data
-          </Button>
-          <label htmlFor="import-file" className="w-full">
-            <Button asChild variant="outline" className="w-full cursor-pointer bg-transparent">
-              <span>
-                <Upload className="mr-2 h-4 w-4" /> Import Data
-              </span>
-            </Button>
-            <input id="import-file" type="file" accept=".json" className="hidden" onChange={handleImportData} />
-          </label>
-          <Button variant="destructive" onClick={handleClearAllData}>
-            <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
-          </Button>
-        </div>
-        <ScrollArea className="flex-1 pr-2">
-          <div className="grid gap-2">
-            {runs.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">No runs recorded yet.</p>
-            ) : (
-              runs.map((run) => (
-                <div
-                  key={run.id}
-                  className="flex items-center justify-between p-2 border rounded-md bg-white dark:bg-gray-800"
-                >
-                  <div className="flex-1 mr-2">
-                    <span className="font-medium text-sm">{getTestNameForRun(run)}</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(run.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" onClick={() => handleLoadRun(run)}>
-                      <Eye className="h-4 w-4" />
-                      <span className="sr-only">View</span>
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteRun(run.id)}>
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </aside>
+      <HistorySidebar
+        history={runs}
+        tests={tests}
+        onLoadRun={handleLoadRun}
+        onRerunTest={handleRerunTest}
+        onDeleteRun={handleDeleteRun}
+        onClearHistory={handleClearAllData}
+        onExportData={handleExportData}
+        onImportData={handleImportData}
+        storageUsage={storageUsage}
+        selectedRunId={selectedRun?.id}
+      />
       <main className="flex-1 p-6 md:p-8 lg:p-10 overflow-auto">
         {selectedRun ? (
           <ResultDetail run={selectedRun} tests={tests} />
@@ -228,5 +187,13 @@ export default function ResultsPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <ResultsPageContent />
+    </Suspense>
   )
 }

@@ -27,9 +27,16 @@ export interface RunResult {
   model: string
   provider: string
   output: string
-  diffScore: number // Percentage of difference
+  diffScore: number // Percentage of difference (0-1)
   diffHtml: string // HTML with highlighted differences
   error: boolean
+  // Enhanced diff metrics
+  similarity?: number // Similarity score (0-1)
+  levenshteinDistance?: number
+  wordCount?: { golden: number; output: number }
+  changes?: { added: number; removed: number; modified: number }
+  semanticSimilarity?: number // Semantic similarity (0-1)
+  executionTime?: number // Time taken to generate response (ms)
 }
 
 export interface Run {

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -14,19 +15,36 @@ import { runComparison } from "@/app/actions"
 import type { Test, ModelConfig, Run, RunResult, StoredApiKeys } from "@/lib/types"
 import { useRouter } from "next/navigation"
 
-export default function RunsPage() {
+function RunsPageContent() {
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [tests, setTests] = useState<Test[]>([])
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null)
   const [apiKeys, setApiKeys] = useState<StoredApiKeys>({})
   const [selectedModels, setSelectedModels] = useState<ModelConfig[]>([])
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<{
+    completed: number
+    total: number
+    currentModel?: string
+    status: string
+  } | null>(null)
 
   useEffect(() => {
     setTests(loadTests())
     setApiKeys(loadApiKeys())
-  }, [])
+    
+    // Check for testId in URL params (from re-run functionality)
+    const testIdFromUrl = searchParams.get('testId')
+    if (testIdFromUrl) {
+      setSelectedTestId(testIdFromUrl)
+      toast({
+        title: "Test Pre-selected",
+        description: "A test has been pre-selected from your run history. Select models and run the comparison.",
+      })
+    }
+  }, [searchParams, toast])
 
   const selectedTest = useMemo(() => {
     return tests.find((test) => test.id === selectedTestId)
@@ -72,6 +90,7 @@ export default function RunsPage() {
     }
 
     setLoading(true)
+    setProgress({ completed: 0, total: selectedModels.length, status: "Initializing..." })
 
     try {
       const runResults: RunResult[] = await runComparison(
@@ -79,7 +98,7 @@ export default function RunsPage() {
         selectedTest.imageInput,
         selectedTest.goldenCopy,
         selectedModels,
-        apiKeys, // Pass API keys to the server action
+        apiKeys
       )
 
       const newRun: Run = {
@@ -96,6 +115,10 @@ export default function RunsPage() {
         title: "Comparison Complete",
         description: "LLM outputs have been compared and saved to history.",
       })
+      
+      // Refresh tests to ensure they're still available
+      setTests(loadTests())
+      
       router.push(`/results?runId=${newRun.id}`) // Redirect to results page for the new run
     } catch (error: any) {
       console.error("Comparison failed:", error)
@@ -106,6 +129,10 @@ export default function RunsPage() {
       })
     } finally {
       setLoading(false)
+      setProgress(null)
+      
+      // Refresh tests after any operation
+      setTests(loadTests())
     }
   }
 
@@ -209,10 +236,78 @@ export default function RunsPage() {
         </CardContent>
       </Card>
 
+      {/* Real-time Progress Display */}
+      {progress && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Running Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Progress: {progress.completed} of {progress.total} models</span>
+                  <span>{Math.round((progress.completed / progress.total) * 100)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+              
+              {progress.currentModel && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Current:</span>
+                  <span className="font-medium">{progress.currentModel}</span>
+                  <span className="text-gray-500">- {progress.status}</span>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {selectedModels.map((model, index) => {
+                  const isCompleted = index < progress.completed
+                  const isCurrent = index === progress.completed && progress.completed < progress.total
+                  
+                  return (
+                    <div
+                      key={`${model.provider}-${model.model}`}
+                      className={`px-2 py-1 rounded-md text-xs flex items-center space-x-1 ${
+                        isCompleted 
+                          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                          : isCurrent
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      }`}
+                    >
+                      {isCompleted && <span className="text-green-500">✓</span>}
+                      {isCurrent && <Loader2 className="h-3 w-3 animate-spin" />}
+                      <span className="truncate">{model.provider}/{model.model}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Button onClick={handleRunComparison} disabled={loading || !selectedTest || selectedModels.length === 0}>
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Run Comparison
+        {loading ? "Running Comparison..." : "Run Comparison"}
       </Button>
     </div>
+  )
+}
+
+export default function RunsPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <RunsPageContent />
+    </Suspense>
   )
 }

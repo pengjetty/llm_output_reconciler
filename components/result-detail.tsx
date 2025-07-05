@@ -21,6 +21,7 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
   const { toast } = useToast()
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({})
   const [showDiffHighlight, setShowDiffHighlight] = useState<Record<string, boolean>>({})
+  const [diffMode, setDiffMode] = useState<Record<string, 'word' | 'line'>>({})
   const associatedTest = tests.find((test) => test.id === run.testId)
 
   const copyToClipboard = async (text: string, itemId: string) => {
@@ -43,6 +44,11 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
         variant: "destructive",
       })
     }
+  }
+
+  const getDiffHtml = (result: any, resultKey: string) => {
+    const mode = diffMode[resultKey] || 'word'
+    return mode === 'line' ? result.lineDiffHtml || result.diffHtml : result.diffHtml
   }
 
   if (!associatedTest) {
@@ -272,6 +278,20 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
                               }
                             />
                           </div>
+                          <div className="flex items-center space-x-2 border-l pl-2">
+                            <label className="text-sm">Mode:</label>
+                            <select
+                              value={diffMode[`${result.provider}-${result.model}`] || 'word'}
+                              onChange={(e) => setDiffMode(prev => ({ 
+                                ...prev, 
+                                [`${result.provider}-${result.model}`]: e.target.value as 'word' | 'line' 
+                              }))}
+                              className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-800"
+                            >
+                              <option value="word">Word</option>
+                              <option value="line">Line</option>
+                            </select>
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"
@@ -293,7 +313,7 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
                       </div>
                       <pre className="whitespace-pre-wrap text-sm p-3 bg-gray-100 dark:bg-gray-700 rounded-md max-h-84 overflow-y-auto">
                         {showDiffHighlight[`${result.provider}-${result.model}`] ?? true ? (
-                          <div dangerouslySetInnerHTML={{ __html: result.diffHtml }} />
+                          <div dangerouslySetInnerHTML={{ __html: getDiffHtml(result, `${result.provider}-${result.model}`) }} />
                         ) : (
                           result.output
                         )}

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { loadTests, loadApiKeys, saveRun } from "@/lib/storage"
 import { modelCapabilities } from "@/lib/model-info"
 import { runComparison } from "@/app/actions"
+import { ModelTable } from "@/components/model-table"
 import type { Test, ModelConfig, Run, RunResult, StoredApiKeys } from "@/lib/types"
 import { useRouter } from "next/navigation"
 
@@ -23,6 +24,7 @@ function RunsPageContent() {
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null)
   const [apiKeys, setApiKeys] = useState<StoredApiKeys>({})
   const [selectedModels, setSelectedModels] = useState<ModelConfig[]>([])
+  const [activeProvider, setActiveProvider] = useState<string>(Object.keys(modelCapabilities)[0])
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<{
     completed: number
@@ -188,51 +190,63 @@ function RunsPageContent() {
           <CardTitle>Select Models</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6">
-            {Object.entries(modelCapabilities).map(([providerName, models]) => {
-              const hasApiKey = !!apiKeys[providerName]
-              return (
-                <div key={providerName} className="grid gap-4 border-b pb-4 last:border-b-0">
-                  <h3 className="text-lg font-semibold capitalize">{providerName}</h3>
-                  {!hasApiKey && (
-                    <p className="text-sm text-red-500">
-                      API Key missing for {providerName}. Please add it in the Models page.
-                    </p>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {Object.entries(models).map(([modelName, capabilities]) => {
-                      const isSelected = selectedModels.some(
-                        (m) => m.provider === providerName && m.model === modelName,
-                      )
-                      return (
-                        <div key={modelName} className="flex items-start space-x-2 p-3 border rounded-md">
-                          <Switch
-                            id={`${providerName}-${modelName}`}
-                            checked={isSelected}
-                            onCheckedChange={(checked) => handleModelToggle(providerName, modelName, checked)}
-                            disabled={!hasApiKey}
-                          />
-                          <div className="grid gap-1">
-                            <Label htmlFor={`${providerName}-${modelName}`}>{modelName}</Label>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Input: {capabilities.input.join(", ")}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Output: {capabilities.output.join(", ")}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Context: {capabilities.context}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Use Cases: {capabilities.useCases}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+          {/* Provider Tabs */}
+          <div className="flex space-x-1 mb-6 border-b">
+            {Object.keys(modelCapabilities).map((providerName) => (
+              <button
+                key={providerName}
+                onClick={() => setActiveProvider(providerName)}
+                className={`px-4 py-2 text-sm font-medium capitalize rounded-t-lg transition-colors ${
+                  activeProvider === providerName
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 border-b-2 border-blue-500'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                {providerName}
+                {selectedModels.filter(m => m.provider === providerName).length > 0 && (
+                  <span className="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded-full">
+                    {selectedModels.filter(m => m.provider === providerName).length}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
+
+          {/* Selected Models Summary */}
+          {selectedModels.length > 0 && (
+            <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">
+                Selected Models ({selectedModels.length})
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {selectedModels.map((model) => (
+                  <span
+                    key={`${model.provider}-${model.model}`}
+                    className="inline-flex items-center px-2 py-1 text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded"
+                  >
+                    {model.provider}/{model.model}
+                    <button
+                      onClick={() => handleModelToggle(model.provider, model.model, false)}
+                      className="ml-1 text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Model Table for Active Provider */}
+          <ModelTable
+            provider={activeProvider}
+            models={modelCapabilities[activeProvider]}
+            selectedModels={selectedModels}
+            onModelToggle={handleModelToggle}
+            showSelection={true}
+            hasApiKey={!!apiKeys[activeProvider]}
+            showDisclaimer={false}
+          />
         </CardContent>
       </Card>
 

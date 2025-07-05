@@ -4,29 +4,6 @@ const STORAGE_KEYS = {
   API_KEYS: "llm_comparison_api_keys",
   TESTS: "llm_comparison_tests",
   RUNS: "llm_comparison_runs",
-  BACKUPS: "llm_comparison_backups",
-  STORAGE_HEALTH: "llm_comparison_storage_health",
-}
-
-interface StorageBackup {
-  id: string
-  timestamp: string
-  type: 'manual' | 'auto' | 'pre-import' | 'emergency'
-  data: {
-    apiKeys: StoredApiKeys
-    tests: Test[]
-    runs: Run[]
-  }
-  size: number
-}
-
-interface StorageHealth {
-  lastBackup: string | null
-  backupCount: number
-  totalSize: number
-  lastCleanup: string | null
-  errors: string[]
-  warnings: string[]
 }
 
 function getLocalStorageSize(): number {
@@ -50,7 +27,6 @@ export function loadApiKeys(): StoredApiKeys {
     return data ? JSON.parse(data) : {}
   } catch (error) {
     console.error("Failed to load API keys from localStorage:", error)
-    // Removed localStorage.removeItem here
     return {}
   }
 }
@@ -60,9 +36,7 @@ export function saveApiKeys(apiKeys: StoredApiKeys): void {
     localStorage.setItem(STORAGE_KEYS.API_KEYS, JSON.stringify(apiKeys))
   } catch (error) {
     console.error("Failed to save API keys to localStorage:", error)
-    if (error instanceof DOMException && error.name === "QuotaExceededError") {
-      console.warn("Local storage quota exceeded when saving API keys.")
-    }
+    throw error
   }
 }
 
@@ -78,7 +52,6 @@ export function loadTests(): Test[] {
     }
   } catch (error) {
     console.error("Failed to load tests from localStorage:", error)
-    // Removed localStorage.removeItem here
   }
   return []
 }
@@ -86,15 +59,6 @@ export function loadTests(): Test[] {
 export function saveTest(newTest: Test): Test[] {
   const tests = loadTests()
   const existingIndex = tests.findIndex((t) => t.id === newTest.id)
-  
-  // Create auto backup before major changes
-  if (existingIndex === -1 && tests.length % 5 === 0) {
-    try {
-      createBackup('auto')
-    } catch (error) {
-      console.warn('Failed to create auto backup:', error)
-    }
-  }
   
   if (existingIndex > -1) {
     tests[existingIndex] = newTest // Update existing test
@@ -104,12 +68,9 @@ export function saveTest(newTest: Test): Test[] {
 
   try {
     localStorage.setItem(STORAGE_KEYS.TESTS, JSON.stringify(tests))
-    updateStorageHealth()
   } catch (error) {
     console.error("Failed to save test to localStorage:", error)
-    if (error instanceof DOMException && error.name === "QuotaExceededError") {
-      console.warn("Local storage quota exceeded when saving test.")
-    }
+    throw error
   }
   return tests
 }
@@ -137,33 +98,45 @@ export function loadRuns(): Run[] {
     }
   } catch (error) {
     console.error("Failed to load runs from localStorage:", error)
-    // Removed localStorage.removeItem here
   }
   return []
 }
 
 export function saveRun(newRun: Run): Run[] {
   const runs = loadRuns()
-  
-  // Create auto backup before major changes
-  if (runs.length % 10 === 0) {
-    try {
-      createBackup('auto')
-    } catch (error) {
-      console.warn('Failed to create auto backup:', error)
-    }
-  }
-  
   runs.unshift(newRun) // Add new run to the beginning
-
+  
   try {
     localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(runs))
-    updateStorageHealth()
   } catch (error) {
     console.error("Failed to save run to localStorage:", error)
     if (error instanceof DOMException && error.name === "QuotaExceededError") {
-      console.warn("Local storage quota exceeded when saving run.")
+      console.warn("Storage quota exceeded. Attempting to save by removing oldest runs...")
+      
+      // Try to save with fewer runs by removing the oldest ones
+      let retryRuns = [...runs]
+      const maxRetries = 5
+      let retryCount = 0
+      
+      while (retryCount < maxRetries && retryRuns.length > 1) {
+        // Remove the last 20% of runs or at least 5 runs
+        const toRemove = Math.max(5, Math.floor(retryRuns.length * 0.2))
+        retryRuns = retryRuns.slice(0, -toRemove)
+        
+        try {
+          localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(retryRuns))
+          console.log(`Successfully saved run after removing ${runs.length - retryRuns.length} old runs`)
+          return retryRuns
+        } catch (retryError) {
+          console.warn(`Retry ${retryCount + 1} failed, removing more runs...`)
+          retryCount++
+        }
+      }
+      
+      // If we still can't save, throw an error with helpful message
+      throw new Error(`Unable to save run due to storage limits. Tried removing up to ${runs.length - retryRuns.length} old runs. Consider manually clearing old data.`)
     }
+    throw error
   }
   return runs
 }
@@ -213,15 +186,6 @@ export function importAllData(importedData: any): { tests: Test[]; runs: Run[]; 
     throw new Error("Invalid import data format. Expected an object with 'apiKeys', 'tests', and 'runs'.")
   }
 
-  // Backup current data before importing
-  const currentApiKeys = localStorage.getItem(STORAGE_KEYS.API_KEYS)
-  const currentTests = localStorage.getItem(STORAGE_KEYS.TESTS)
-  const currentRuns = localStorage.getItem(STORAGE_KEYS.RUNS)
-
-  if (currentApiKeys) localStorage.setItem(`${STORAGE_KEYS.API_KEYS}_backup_${Date.now()}`, currentApiKeys)
-  if (currentTests) localStorage.setItem(`${STORAGE_KEYS.TESTS}_backup_${Date.now()}`, currentTests)
-  if (currentRuns) localStorage.setItem(`${STORAGE_KEYS.RUNS}_backup_${Date.now()}`, currentRuns)
-
   // Import API Keys
   saveApiKeys(importedData.apiKeys)
 
@@ -250,171 +214,42 @@ export function getStorageUsage(): number {
   return getLocalStorageSize()
 }
 
-// --- Enhanced Storage Management ---
-
-export function createBackup(type: 'manual' | 'auto' | 'pre-import' | 'emergency' = 'manual'): StorageBackup {
-  const backup: StorageBackup = {
-    id: `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    timestamp: new Date().toISOString(),
-    type,
-    data: {
-      apiKeys: loadApiKeys(),
-      tests: loadTests(),
-      runs: loadRuns(),
-    },
-    size: 0,
-  }
-  
-  const serialized = JSON.stringify(backup)
-  backup.size = serialized.length * 2 // Approximate bytes
-  
-  try {
-    const backups = loadBackups()
-    backups.unshift(backup)
-    
-    // Keep only last 5 backups to manage storage
-    const trimmedBackups = backups.slice(0, 5)
-    localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(trimmedBackups))
-    
-    updateStorageHealth()
-    return backup
-  } catch (error) {
-    console.error('Failed to create backup:', error)
-    throw new Error('Failed to create backup')
-  }
-}
-
-export function loadBackups(): StorageBackup[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.BACKUPS)
-    if (data) {
-      const parsed = JSON.parse(data)
-      if (Array.isArray(parsed)) {
-        return parsed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load backups:', error)
-  }
-  return []
-}
-
-export function restoreBackup(backupId: string): { success: boolean; error?: string } {
-  try {
-    const backups = loadBackups()
-    const backup = backups.find(b => b.id === backupId)
-    
-    if (!backup) {
-      return { success: false, error: 'Backup not found' }
-    }
-    
-    // Create a pre-restore backup
-    createBackup('emergency')
-    
-    // Restore data
-    saveApiKeys(backup.data.apiKeys)
-    localStorage.setItem(STORAGE_KEYS.TESTS, JSON.stringify(backup.data.tests))
-    localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(backup.data.runs))
-    
-    updateStorageHealth()
-    return { success: true }
-  } catch (error) {
-    console.error('Failed to restore backup:', error)
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
-  }
-}
-
-export function getStorageHealth(): StorageHealth {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.STORAGE_HEALTH)
-    if (data) {
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Failed to load storage health:', error)
-  }
-  
-  return {
-    lastBackup: null,
-    backupCount: 0,
-    totalSize: 0,
-    lastCleanup: null,
-    errors: [],
-    warnings: [],
-  }
-}
-
-export function updateStorageHealth(): void {
-  const health = getStorageHealth()
-  const backups = loadBackups()
-  
-  health.lastBackup = backups.length > 0 ? backups[0].timestamp : null
-  health.backupCount = backups.length
-  health.totalSize = getLocalStorageSize()
-  health.errors = []
-  health.warnings = []
-  
-  // Check for warnings
-  if (backups.length === 0) {
-    health.warnings.push('No backups available')
-  }
-  
-  if (health.lastBackup) {
-    const lastBackupDate = new Date(health.lastBackup)
-    const daysSinceBackup = (Date.now() - lastBackupDate.getTime()) / (1000 * 60 * 60 * 24)
-    if (daysSinceBackup > 7) {
-      health.warnings.push('No recent backups (>7 days)')
-    }
-  }
-  
-  try {
-    localStorage.setItem(STORAGE_KEYS.STORAGE_HEALTH, JSON.stringify(health))
-  } catch (error) {
-    console.error('Failed to update storage health:', error)
-  }
-}
-
-export function performStorageCleanup(): { itemsRemoved: number; spaceFreed: number } {
-  const initialSize = getLocalStorageSize()
-  let itemsRemoved = 0
-  
-  try {
-    // Remove old backups (keep only 3 most recent)
-    const backups = loadBackups()
-    if (backups.length > 3) {
-      const trimmedBackups = backups.slice(0, 3)
-      localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(trimmedBackups))
-      itemsRemoved += backups.length - 3
-    }
-    
-    // Update health after cleanup
-    const health = getStorageHealth()
-    health.lastCleanup = new Date().toISOString()
-    localStorage.setItem(STORAGE_KEYS.STORAGE_HEALTH, JSON.stringify(health))
-    
-    const spaceFreed = initialSize - getLocalStorageSize()
-    return { itemsRemoved, spaceFreed }
-  } catch (error) {
-    console.error('Failed to perform storage cleanup:', error)
-    return { itemsRemoved: 0, spaceFreed: 0 }
-  }
-}
-
 export function getStorageDiagnostics(): {
   totalSize: number
   itemCounts: { [key: string]: number }
-  health: StorageHealth
+  itemSizes: { [key: string]: number }
 } {
-  const health = getStorageHealth()
-  
+  const getItemSize = (key: string): number => {
+    const value = localStorage.getItem(key)
+    return value ? (value.length * 2) / (1024 * 1024) : 0 // MB
+  }
+
   return {
     totalSize: getLocalStorageSize(),
     itemCounts: {
       tests: loadTests().length,
       runs: loadRuns().length,
-      backups: loadBackups().length,
       apiKeys: Object.keys(loadApiKeys()).length,
     },
-    health,
+    itemSizes: {
+      tests: getItemSize(STORAGE_KEYS.TESTS),
+      runs: getItemSize(STORAGE_KEYS.RUNS),
+      apiKeys: getItemSize(STORAGE_KEYS.API_KEYS),
+    },
+  }
+}
+
+export function cleanupOldRuns(maxRuns: number = 50): { removed: number; newCount: number } {
+  const runs = loadRuns()
+  if (runs.length <= maxRuns) {
+    return { removed: 0, newCount: runs.length }
+  }
+  
+  const trimmedRuns = runs.slice(0, maxRuns)
+  localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(trimmedRuns))
+  
+  return {
+    removed: runs.length - maxRuns,
+    newCount: maxRuns,
   }
 }

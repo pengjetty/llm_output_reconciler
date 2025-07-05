@@ -42,6 +42,11 @@ export interface RunResult {
   changes?: { added: number; removed: number; modified: number }
   semanticSimilarity?: number // Semantic similarity (0-1)
   executionTime?: number // Time taken to generate response (ms)
+  // Line-based diff metrics
+  lineDiffScore?: number // Line-based diff score (0-1)
+  lineDiffHtml?: string // HTML with line-based diff highlighting
+  lineCount?: { golden: number; output: number }
+  lineChanges?: { added: number; removed: number; modified: number }
 }
 
 export interface Run {

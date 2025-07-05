@@ -18,6 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - cp
 - chmod
 - touch
+- grep
 
 ## Commands That Must Ask for Permission
 - rm

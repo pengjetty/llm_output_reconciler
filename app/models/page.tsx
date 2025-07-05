@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Terminal, CheckCircle, XCircle, Globe, ChevronUp, ChevronDown } from "lucide-react"
+import { Terminal, CheckCircle, XCircle, Globe } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ModelTable } from "@/components/model-table"
 import type { ModelConfig, StoredApiKeys } from "@/lib/types"
 import { modelCapabilities } from "@/lib/model-info"
 import { loadApiKeys, saveApiKeys } from "@/lib/storage"
@@ -24,17 +24,12 @@ const providerUrls: Record<string, string> = {
   xai: "https://docs.x.ai/docs/models"
 }
 
-type SortField = 'name' | 'input' | 'output' | 'context' | 'pricing'
-type SortDirection = 'asc' | 'desc'
-
 export default function ModelsPage() {
   const { toast } = useToast()
   const [apiKeys, setApiKeys] = useState<StoredApiKeys>({})
   const [selectedModels, setSelectedModels] = useState<ModelConfig[]>([])
   const [providerEnabled, setProviderEnabled] = useState<Record<string, boolean>>({})
   const [activeProvider, setActiveProvider] = useState<string>(Object.keys(modelCapabilities)[0])
-  const [sortField, setSortField] = useState<SortField>('name')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [showDeprecated, setShowDeprecated] = useState<boolean>(false)
 
   useEffect(() => {
@@ -78,70 +73,6 @@ export default function ModelsPage() {
     })
   }
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortDirection('asc')
-    }
-  }
-
-  const getSortedModels = () => {
-    const models = Object.entries(modelCapabilities[activeProvider])
-      .filter(([_, capabilities]) => showDeprecated || !capabilities.deprecated)
-    
-    return models.sort(([nameA, capsA], [nameB, capsB]) => {
-      let compareValue = 0
-      
-      switch (sortField) {
-        case 'name':
-          compareValue = nameA.localeCompare(nameB)
-          break
-        case 'input':
-          compareValue = capsA.input.join(',').localeCompare(capsB.input.join(','))
-          break
-        case 'output':
-          compareValue = capsA.output.join(',').localeCompare(capsB.output.join(','))
-          break
-        case 'context':
-          // Convert context to numeric value for proper sorting
-          const getContextValue = (context: string) => {
-            const num = parseInt(context.replace(/[^0-9]/g, ''))
-            if (context.includes('M')) return num * 1000000
-            if (context.includes('k') || context.includes('K')) return num * 1000
-            return num
-          }
-          compareValue = getContextValue(capsA.context) - getContextValue(capsB.context)
-          break
-        case 'pricing':
-          // Sort by input pricing, fallback to 0 if no pricing
-          const priceA = capsA.pricing?.inputPerMillion || 0
-          const priceB = capsB.pricing?.inputPerMillion || 0
-          compareValue = priceA - priceB
-          break
-      }
-      
-      return sortDirection === 'asc' ? compareValue : -compareValue
-    })
-  }
-
-  const SortableTableHead = ({ field, children }: { field: SortField, children: React.ReactNode }) => {
-    const isActive = sortField === field
-    const Icon = isActive ? (sortDirection === 'asc' ? ChevronUp : ChevronDown) : ChevronUp
-    
-    return (
-      <TableHead 
-        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 select-none"
-        onClick={() => handleSort(field)}
-      >
-        <div className="flex items-center gap-1">
-          {children}
-          <Icon className={`h-4 w-4 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-        </div>
-      </TableHead>
-    )
-  }
 
   return (
     <div className="flex h-screen">
@@ -251,100 +182,14 @@ export default function ModelsPage() {
           </Card>
 
           {/* Models Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="capitalize">{activeProvider} Models</span>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="show-deprecated"
-                    checked={showDeprecated}
-                    onCheckedChange={setShowDeprecated}
-                  />
-                  <Label htmlFor="show-deprecated" className="text-sm font-normal">
-                    Show deprecated models
-                  </Label>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Disclaimer */}
-              <Alert className="mb-4">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Model Information Disclaimer</AlertTitle>
-                <AlertDescription>
-                  The model specifications, pricing, and availability shown below may be outdated as providers frequently update their offerings. 
-                  Please verify current information on the official API documentation before making decisions. 
-                  Use the "API Docs" button above to access the latest official information.
-                </AlertDescription>
-              </Alert>
-              
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableTableHead field="name">Model Name</SortableTableHead>
-                    <SortableTableHead field="input">Input Types</SortableTableHead>
-                    <SortableTableHead field="output">Output Types</SortableTableHead>
-                    <SortableTableHead field="context">Context Window</SortableTableHead>
-                    <SortableTableHead field="pricing">Pricing ($/M tokens)</SortableTableHead>
-                    <TableHead>Use Cases</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {getSortedModels().map(([modelName, capabilities]) => (
-                    <TableRow key={modelName} className={capabilities.deprecated ? 'opacity-60' : ''}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {modelName}
-                          {capabilities.deprecated && (
-                            <Badge variant="destructive" className="text-xs">
-                              Deprecated
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {capabilities.input.map((input) => (
-                            <Badge key={input} variant="outline">
-                              {input}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {capabilities.output.map((output) => (
-                            <Badge key={output} variant="outline">
-                              {output}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{capabilities.context}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {capabilities.pricing ? (
-                          <div className="text-sm">
-                            <div className="font-medium">In: ${capabilities.pricing.inputPerMillion}</div>
-                            <div className="text-gray-500 dark:text-gray-400">Out: ${capabilities.pricing.outputPerMillion}</div>
-                          </div>
-                        ) : (
-                          <Badge variant="outline">N/A</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {capabilities.useCases}
-                        </p>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <ModelTable
+            provider={activeProvider}
+            models={modelCapabilities[activeProvider]}
+            showDeprecated={showDeprecated}
+            onShowDeprecatedChange={setShowDeprecated}
+            apiDocsUrl={providerUrls[activeProvider]}
+            showDisclaimer={true}
+          />
         </div>
       </div>
     </div>

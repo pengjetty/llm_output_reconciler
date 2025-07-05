@@ -6,7 +6,7 @@ import { anthropic } from "@ai-sdk/anthropic"
 import { google, createGoogleGenerativeAI } from "@ai-sdk/google"
 import { xai } from "@ai-sdk/xai"
 import type { ModelConfig, RunResult, StoredApiKeys } from "@/lib/types"
-import { calculateDiff, calculateSemanticSimilarity } from "@/lib/diff"
+import { calculateDiff, calculateSemanticSimilarity, calculateLineDiff } from "@/lib/diff"
 
 // Enhanced parallel processing with real-time feedback
 export async function runComparison(
@@ -30,7 +30,7 @@ export async function runComparison(
       Promise.race([
         task,
         new Promise<RunResult>((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
+          setTimeout(() => reject(new Error('Request timeout after 60 seconds')), 60000)
         )
       ])
     )
@@ -133,6 +133,7 @@ async function runSingleModel(
     const executionTime = Date.now() - startTime
     
     const diffResult = calculateDiff(goldenCopy, text)
+    const lineDiffResult = calculateLineDiff(goldenCopy, text)
     const semanticSimilarity = calculateSemanticSimilarity(goldenCopy, text)
 
     return {
@@ -148,6 +149,11 @@ async function runSingleModel(
       changes: diffResult.changes,
       semanticSimilarity: semanticSimilarity,
       executionTime: executionTime,
+      // Line-based diff data
+      lineDiffScore: lineDiffResult.diffScore,
+      lineDiffHtml: lineDiffResult.diffHtml,
+      lineCount: lineDiffResult.lineCount,
+      lineChanges: lineDiffResult.changes,
     }
   } catch (error: any) {
     console.error(`Error running model ${provider}/${model}:`, error)

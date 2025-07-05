@@ -10,6 +10,14 @@ interface DiffResult {
   changes: { added: number; removed: number; modified: number }
 }
 
+interface LineDiffResult {
+  diffScore: number // Percentage of different lines (0-1)
+  diffHtml: string // HTML string with highlighted line differences
+  lineCount: { golden: number; output: number }
+  similarity: number // Similarity score (0-1)
+  changes: { added: number; removed: number; modified: number }
+}
+
 enum DiffOperation {
   EQUAL = 'equal',
   DELETE = 'delete',
@@ -279,4 +287,212 @@ export function getDiffSummary(result: DiffResult): string {
   const similarityPercent = Math.round(similarity * 100)
   
   return `${changeText} (${similarityPercent}% similar)`
+}
+
+// LINE-BASED DIFF IMPLEMENTATION
+export function calculateLineDiff(golden: string, output: string): LineDiffResult {
+  const goldenLines = golden.split('\n')
+  const outputLines = output.split('\n')
+  
+  const diffParts = computeLineDiff(goldenLines, outputLines)
+  const stats = calculateLineStats(diffParts)
+  const diffHtml = generateLineHtml(diffParts)
+  
+  return {
+    diffScore: stats.diffScore,
+    diffHtml,
+    lineCount: { golden: goldenLines.length, output: outputLines.length },
+    similarity: 1 - stats.diffScore,
+    changes: stats.changes,
+  }
+}
+
+interface LineDiffPart {
+  operation: DiffOperation
+  text: string
+  lineNumber?: number
+}
+
+function computeLineDiff(golden: string[], output: string[]): LineDiffPart[] {
+  const dp: number[][] = []
+  const operations: DiffOperation[][] = []
+  
+  // Initialize DP table for line-based diff
+  for (let i = 0; i <= golden.length; i++) {
+    dp[i] = []
+    operations[i] = []
+    for (let j = 0; j <= output.length; j++) {
+      if (i === 0) {
+        dp[i][j] = j
+        operations[i][j] = DiffOperation.INSERT
+      } else if (j === 0) {
+        dp[i][j] = i
+        operations[i][j] = DiffOperation.DELETE
+      } else {
+        const isEqual = golden[i - 1].trim() === output[j - 1].trim()
+        const isSimilar = calculateLineSimilarity(golden[i - 1], output[j - 1]) > 0.9
+        
+        if (isEqual) {
+          dp[i][j] = dp[i - 1][j - 1]
+          operations[i][j] = DiffOperation.EQUAL
+        } else {
+          const deleteCost = dp[i - 1][j] + 1
+          const insertCost = dp[i][j - 1] + 1
+          const replaceCost = dp[i - 1][j - 1] + (isSimilar ? 0.5 : 1)
+          
+          const minCost = Math.min(deleteCost, insertCost, replaceCost)
+          dp[i][j] = minCost
+          
+          if (minCost === replaceCost) {
+            operations[i][j] = DiffOperation.REPLACE
+          } else if (minCost === deleteCost) {
+            operations[i][j] = DiffOperation.DELETE
+          } else {
+            operations[i][j] = DiffOperation.INSERT
+          }
+        }
+      }
+    }
+  }
+  
+  // Backtrack to build line diff parts
+  const diffParts: LineDiffPart[] = []
+  let i = golden.length
+  let j = output.length
+  let goldenLineNum = golden.length
+  let outputLineNum = output.length
+  
+  while (i > 0 || j > 0) {
+    const operation = operations[i][j]
+    
+    switch (operation) {
+      case DiffOperation.EQUAL:
+        diffParts.unshift({
+          operation: DiffOperation.EQUAL,
+          text: golden[i - 1],
+          lineNumber: goldenLineNum,
+        })
+        i--
+        j--
+        goldenLineNum--
+        outputLineNum--
+        break
+        
+      case DiffOperation.DELETE:
+        diffParts.unshift({
+          operation: DiffOperation.DELETE,
+          text: golden[i - 1],
+          lineNumber: goldenLineNum,
+        })
+        i--
+        goldenLineNum--
+        break
+        
+      case DiffOperation.INSERT:
+        diffParts.unshift({
+          operation: DiffOperation.INSERT,
+          text: output[j - 1],
+          lineNumber: outputLineNum,
+        })
+        j--
+        outputLineNum--
+        break
+        
+      case DiffOperation.REPLACE:
+        // For line-based diff, we show both deleted and inserted lines
+        diffParts.unshift({
+          operation: DiffOperation.DELETE,
+          text: golden[i - 1],
+          lineNumber: goldenLineNum,
+        })
+        diffParts.unshift({
+          operation: DiffOperation.INSERT,
+          text: output[j - 1],
+          lineNumber: outputLineNum,
+        })
+        i--
+        j--
+        goldenLineNum--
+        outputLineNum--
+        break
+    }
+  }
+  
+  return diffParts
+}
+
+function calculateLineSimilarity(line1: string, line2: string): number {
+  const trimmed1 = line1.trim()
+  const trimmed2 = line2.trim()
+  
+  if (trimmed1 === trimmed2) return 1
+  
+  const maxLength = Math.max(trimmed1.length, trimmed2.length)
+  if (maxLength === 0) return 1
+  
+  const editDistance = levenshteinDistance(trimmed1, trimmed2)
+  return 1 - editDistance / maxLength
+}
+
+function calculateLineStats(diffParts: LineDiffPart[]): {
+  diffScore: number
+  changes: { added: number; removed: number; modified: number }
+} {
+  let added = 0
+  let removed = 0
+  let modified = 0
+  let equal = 0
+  
+  diffParts.forEach(part => {
+    switch (part.operation) {
+      case DiffOperation.INSERT:
+        added++
+        break
+      case DiffOperation.DELETE:
+        removed++
+        break
+      case DiffOperation.REPLACE:
+        modified++
+        break
+      case DiffOperation.EQUAL:
+        equal++
+        break
+    }
+  })
+  
+  const total = added + removed + modified + equal
+  const diffScore = total === 0 ? 0 : (added + removed + modified) / total
+  
+  return {
+    diffScore,
+    changes: { added, removed, modified },
+  }
+}
+
+function generateLineHtml(diffParts: LineDiffPart[]): string {
+  return diffParts
+    .map(part => {
+      const lineNumPrefix = part.lineNumber ? `${part.lineNumber}: ` : ''
+      
+      switch (part.operation) {
+        case DiffOperation.EQUAL:
+          return `<div class="line-equal">${escapeHtml(part.text)}</div>`
+          
+        case DiffOperation.DELETE:
+          return `<div class="line-delete bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-md border-l-4 border-red-500" title="Line ${part.lineNumber || 'unknown'} removed">
+            <span class="text-xs text-red-600 dark:text-red-400 font-mono">- ${part.lineNumber || '?'}</span>
+            <span class="ml-2 line-through">${escapeHtml(part.text)}</span>
+          </div>`
+          
+        case DiffOperation.INSERT:
+          return `<div class="line-insert bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-md border-l-4 border-green-500" title="Line ${part.lineNumber || 'unknown'} added">
+            <span class="text-xs text-green-600 dark:text-green-400 font-mono">+ ${part.lineNumber || '?'}</span>
+            <span class="ml-2">${escapeHtml(part.text)}</span>
+          </div>`
+          
+        default:
+          return `<div class="line-equal">${escapeHtml(part.text)}</div>`
+      }
+    })
+    .join('')
 }

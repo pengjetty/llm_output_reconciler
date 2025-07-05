@@ -8,6 +8,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { StoredRun, Test } from "@/lib/types"
 import { History, Upload, Download, Trash2, Play, Eye, MoreVertical, Star, Clock, Archive } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import type React from "react"
 
 interface HistorySidebarProps {
@@ -43,6 +54,11 @@ export function HistorySidebar({
   const getTestPrompt = (testId: string) => {
     const test = tests.find(t => t.id === testId)
     return test ? test.prompt : 'No prompt available'
+  }
+
+  const getTestImage = (testId: string) => {
+    const test = tests.find(t => t.id === testId)
+    return test ? test.imageInput : null
   }
 
   const getBestResult = (run: StoredRun) => {
@@ -110,6 +126,7 @@ export function HistorySidebar({
                 history.map((run) => {
                   const testName = getTestName(run.testId)
                   const testPrompt = getTestPrompt(run.testId)
+                  const testImage = getTestImage(run.testId)
                   const bestResult = getBestResult(run)
                   const stats = getRunStats(run)
                   const isSelected = selectedRunId === run.id
@@ -152,13 +169,31 @@ export function HistorySidebar({
                               <Play className="mr-2 h-4 w-4" />
                               Re-run Test
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onDeleteRun(run.id)}
-                              className="text-red-600 dark:text-red-400"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Run
-                            </DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem 
+                                  className="text-red-600 dark:text-red-400"
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Run
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Run</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this run? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => onDeleteRun(run.id)}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -174,6 +209,17 @@ export function HistorySidebar({
                           <p className="max-w-xs">{testPrompt}</p>
                         </TooltipContent>
                       </Tooltip>
+
+                      {/* Image Preview */}
+                      {testImage && (
+                        <div className="mb-2">
+                          <img 
+                            src={testImage} 
+                            alt="Test input" 
+                            className="max-w-full h-16 object-cover rounded border" 
+                          />
+                        </div>
+                      )}
 
                       {/* Stats */}
                       <div className="flex items-center justify-between mb-2">

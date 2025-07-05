@@ -21,6 +21,17 @@ import { useToast } from "@/hooks/use-toast"
 import { HistorySidebar } from "@/components/history-sidebar"
 import { ResultDetail } from "@/components/result-detail"
 import { useRouter } from "next/navigation"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 function ResultsPageContent() {
   const { toast } = useToast()
@@ -83,16 +94,14 @@ function ResultsPageContent() {
   }
 
   const handleDeleteRun = (id: string) => {
-    if (confirm("Are you sure you want to delete this run?")) {
-      deleteRun(id) // Updates localStorage
-      updateAllLocalData() // Re-sync state
-      toast({
-        title: "Run Deleted",
-        description: "The selected run has been removed from history.",
-      })
-      if (selectedRun?.id === id) {
-        setSelectedRun(null)
-      }
+    deleteRun(id) // Updates localStorage
+    updateAllLocalData() // Re-sync state
+    toast({
+      title: "Run Deleted",
+      description: "The selected run has been removed from history.",
+    })
+    if (selectedRun?.id === id) {
+      setSelectedRun(null)
     }
   }
 

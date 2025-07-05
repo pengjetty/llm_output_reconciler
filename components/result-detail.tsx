@@ -4,9 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Trophy, Clock, Target, BarChart3 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Trophy, Clock, Target, BarChart3, Copy, Check } from "lucide-react"
 import type { Run, Test } from "@/lib/types"
 import { getDiffSummary } from "@/lib/diff"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 interface ResultDetailProps {
   run: Run
@@ -14,7 +18,32 @@ interface ResultDetailProps {
 }
 
 export function ResultDetail({ run, tests }: ResultDetailProps) {
+  const { toast } = useToast()
+  const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({})
+  const [showDiffHighlight, setShowDiffHighlight] = useState<Record<string, boolean>>({})
   const associatedTest = tests.find((test) => test.id === run.testId)
+
+  const copyToClipboard = async (text: string, itemId: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedItems(prev => ({ ...prev, [itemId]: true }))
+      toast({
+        title: "Copied to clipboard",
+        description: "Content has been copied to your clipboard.",
+      })
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedItems(prev => ({ ...prev, [itemId]: false }))
+      }, 2000)
+    } catch (err) {
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy content to clipboard.",
+        variant: "destructive",
+      })
+    }
+  }
 
   if (!associatedTest) {
     return (
@@ -76,12 +105,16 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
             <strong>Prompt:</strong> {associatedTest.prompt}
           </p>
           {associatedTest.imageInput && (
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              <strong>Image:</strong>{" "}
-              {associatedTest.imageInput.length > 100
-                ? `${associatedTest.imageInput.substring(0, 100)}...`
-                : associatedTest.imageInput}
-            </p>
+            <div className="mt-2">
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <strong>Image:</strong>
+              </p>
+              <img 
+                src={associatedTest.imageInput} 
+                alt="Test input" 
+                className="max-w-sm max-h-32 object-contain border rounded-md" 
+              />
+            </div>
           )}
           <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
             <strong>Golden Copy:</strong>
@@ -199,17 +232,72 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
                   {/* Side-by-side Comparison */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-semibold mb-2">Golden Copy</h4>
-                      <pre className="whitespace-pre-wrap text-sm p-3 bg-gray-100 dark:bg-gray-700 rounded-md max-h-64 overflow-y-auto">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold">Golden Copy</h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(associatedTest.goldenCopy, `golden-${result.provider}-${result.model}`)}
+                        >
+                          {copiedItems[`golden-${result.provider}-${result.model}`] ? (
+                            <>
+                              <Check className="h-4 w-4 mr-2" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <pre className="whitespace-pre-wrap text-sm p-3 bg-gray-100 dark:bg-gray-700 rounded-md max-h-84 overflow-y-auto">
                         {associatedTest.goldenCopy}
                       </pre>
                     </div>
                     <div>
-                      <h4 className="font-semibold mb-2">Model Output (Diff Highlighted)</h4>
-                      <pre
-                        className="whitespace-pre-wrap text-sm p-3 bg-gray-100 dark:bg-gray-700 rounded-md max-h-64 overflow-y-auto"
-                        dangerouslySetInnerHTML={{ __html: result.diffHtml }}
-                      />
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold">Model Output</h4>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2">
+                            <label htmlFor={`diff-toggle-${result.provider}-${result.model}`} className="text-sm">
+                              Diff
+                            </label>
+                            <Switch
+                              id={`diff-toggle-${result.provider}-${result.model}`}
+                              checked={showDiffHighlight[`${result.provider}-${result.model}`] ?? true}
+                              onCheckedChange={(checked) => 
+                                setShowDiffHighlight(prev => ({ ...prev, [`${result.provider}-${result.model}`]: checked }))
+                              }
+                            />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(result.output, `output-${result.provider}-${result.model}`)}
+                          >
+                            {copiedItems[`output-${result.provider}-${result.model}`] ? (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <pre className="whitespace-pre-wrap text-sm p-3 bg-gray-100 dark:bg-gray-700 rounded-md max-h-84 overflow-y-auto">
+                        {showDiffHighlight[`${result.provider}-${result.model}`] ?? true ? (
+                          <div dangerouslySetInnerHTML={{ __html: result.diffHtml }} />
+                        ) : (
+                          result.output
+                        )}
+                      </pre>
                     </div>
                   </div>
                 </AccordionContent>

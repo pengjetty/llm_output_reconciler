@@ -8,6 +8,11 @@ export interface ModelCapability {
   output: string[]
   context: string
   useCases: string
+  pricing?: {
+    inputPerMillion: number
+    outputPerMillion: number
+  }
+  deprecated?: boolean
 }
 
 export interface ProviderConfig {

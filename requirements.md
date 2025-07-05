@@ -10,17 +10,20 @@ This is a comprehensive web-based tool to compare outputs from various LLM model
 
 ### 1. API Key Management
 - Users can input and save API keys for multiple LLM providers:
-  - **OpenAI**: gpt-4-1106-preview, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo, gpt-3.5-turbo-16k
-  - **Anthropic**: claude-opus-4-20250514, claude-sonnet-4-20250514, claude-3-7-sonnet-20250219, claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-opus-20240229
-  - **Google Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite-preview-06-17, gemini-1.5-pro, gemini-1.5-flash, gemini-1.5-flash-8b
+  - **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-3.5-turbo (+ deprecated legacy models)
+  - **Anthropic**: claude-opus-4-20250514, claude-sonnet-4-20250514, claude-3-7-sonnet-20250219, claude-3-5-haiku-20241022 (+ deprecated legacy models)
+  - **Google Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite (+ deprecated legacy models)
+  - **xAI**: grok-3, grok-3-pro, grok-3-mini (+ deprecated legacy models)
 - Each provider can have multiple models configured with individual selection.
 - Users can enable/disable entire providers and individual models within each provider.
 - **Individual Model Selection**: Users can selectively choose which specific models to run for each comparison, allowing granular control over testing scope.
 - **Enhanced Model Information**: Detailed specifications displayed for each model including:
   - Input types supported (text, images, audio, video, PDF)
   - Output capabilities
-  - Context window sizes
+  - Context window sizes (8k to 1M tokens)
+  - Pricing per million tokens (input/output rates)
   - Optimized use cases and performance characteristics
+  - Deprecated status with visual indicators
 
 ### 2. Prompt Input
 - Accept both **text** and **image** as input.
@@ -136,20 +139,24 @@ This is a comprehensive web-based tool to compare outputs from various LLM model
 - **Status**: **Production Ready** (183 lines editor + 127 lines manager)
 
 #### **Model Selection Interface** (`/src/components/ModelSelection.tsx`)
-- **19 Supported Models**: Complete model coverage across all providers
-  - **OpenAI**: 7 models (GPT-4o, GPT-4 variants, GPT-3.5 series)
-  - **Anthropic**: 6 models (Claude 4 series, Claude 3.5/3 series)
-  - **Google**: 6 models (Gemini 2.5/1.5 series with various specializations)
+- **29 Supported Models**: Complete model coverage across all providers
+  - **OpenAI**: 10 models (GPT-4.1 series, GPT-4o series, GPT-3.5 series + deprecated models)
+  - **Anthropic**: 6 models (Claude 4 series, Claude 3.5/3 series + deprecated models)
+  - **Google**: 8 models (Gemini 2.5/1.5 series + deprecated models)
+  - **xAI**: 10 models (Grok 3 series, Grok 2 series + deprecated models)
 - **Enhanced Model Information**: Detailed specifications for each model
   - Input types supported (text, images, audio, video, PDF)
-  - Context window sizes and output token limits
+  - Context window sizes (8k to 1M tokens)
+  - Pricing per million tokens (input/output rates)
   - Optimization details and use case recommendations
+  - Deprecated status with visual indicators
 - **Advanced Selection Controls**: 
   - Select All / Select None functionality
   - Per-provider bulk selection toggles
   - Individual model checkboxes with enhanced UI
+  - Show/hide deprecated models toggle
 - **Visual Organization**: Models grouped by provider with selection counters
-- **Status**: **Production Ready** (338 lines with complete model metadata)
+- **Status**: **Production Ready** (Complete model metadata with pricing)
 
 #### **Comparison Execution Engine** (`/src/App.tsx`)
 - **Parallel Processing**: Concurrent API requests using Promise.all for optimal performance
@@ -235,6 +242,21 @@ This is a comprehensive web-based tool to compare outputs from various LLM model
 - **Bulk Operations**: Clear all history with automatic backup
 - **Status**: **Production Ready** (Comprehensive history management)
 
+#### **Model Management Page** (`/app/models/page.tsx`)
+- **Comprehensive Model Database**: Up-to-date model information synchronized with API documentation
+- **Sortable Model Table**: Interactive table with sortable columns (name, input types, output types, context window, pricing)
+- **Pricing Information**: Real-time pricing per million tokens for input/output across all models
+- **Deprecated Model Management**: Toggle to show/hide deprecated models with visual indicators
+- **Provider Organization**: Sidebar navigation with model counts and provider status
+- **API Documentation Links**: Direct access to official API documentation for each provider
+- **Enhanced Model Details**: Complete specifications including:
+  - Latest model versions (GPT-4.1, Claude 4, Gemini 2.5, Grok 3)
+  - Context window sizes up to 1M tokens
+  - Multimodal capabilities (text, image, audio, video, PDF)
+  - Pricing transparency with cost comparison
+  - Deprecation status and migration guidance
+- **Status**: **Production Ready** (Complete model reconciliation with API docs)
+
 ### ✅ **Technical Implementation**
 
 #### **Type System** (`/src/types.ts`)
@@ -254,7 +276,7 @@ This is a comprehensive web-based tool to compare outputs from various LLM model
 - **Total Components**: 15 major components (12 core + 3 UI components)
 - **Total Pages**: 4 complete page implementations
 - **Total Lines of Code**: ~4,500+ lines
-- **Supported Models**: 19 models across 3 providers
+- **Supported Models**: 29 models across 4 providers (OpenAI, Anthropic, Google, xAI)
 - **Storage Features**: 10+ advanced storage management features
 - **Error Scenarios**: Comprehensive coverage with multiple fallback mechanisms
 - **UI Components**: Complete shadcn/ui implementation with accessibility
@@ -270,10 +292,28 @@ This is a comprehensive web-based tool to compare outputs from various LLM model
 
 ---
 
+## Recent Updates & Improvements
+
+### ✅ **Model Database Reconciliation (Latest)**
+- **API Documentation Sync**: Reconciled all model information with official API documentation from OpenAI, Anthropic, Google, and xAI
+- **Latest Model Support**: Added support for newest models including GPT-4.1 series, Claude 4 series, Gemini 2.5 series, and Grok 3 series
+- **Pricing Integration**: Added real-time pricing information for all models with input/output token costs
+- **Deprecated Model Management**: Implemented filtering and visual indicators for deprecated models
+- **Enhanced Model Specifications**: Updated context window sizes, multimodal capabilities, and use case descriptions
+
+### ✅ **Model Management Interface Updates**
+- **Sortable Model Table**: Interactive table with sortable columns for easy model comparison
+- **Provider Navigation**: Enhanced sidebar with model counts and provider status indicators
+- **Deprecated Model Toggle**: Option to show/hide deprecated models with visual deprecation badges
+- **Pricing Display**: Clear pricing information for cost comparison across models
+- **API Documentation Links**: Direct access to official documentation for each provider
+
 ## Optional/Future Features
 
 - Semantic diff scoring (e.g., cosine similarity using embeddings).
 - ~~Export results (CSV/JSON)~~ ✅ **Implemented** - Data export/import functionality available
+- ~~Model pricing information~~ ✅ **Implemented** - Real-time pricing per million tokens
+- ~~Deprecated model management~~ ✅ **Implemented** - Visual indicators and filtering
 - Cloud sync or account-based storage.
 - Team collaboration and shared evaluation sets.
 - Batch prompt testing with CSV upload.
@@ -285,5 +325,8 @@ This is a comprehensive web-based tool to compare outputs from various LLM model
   - Custom model grouping and organization
   - Performance benchmarking across model generations
   - Automated test suite generation and validation
+  - Cost tracking and budget management
+  - Model recommendation engine based on use case
+  - Automated model migration suggestions
 
 

@@ -47,6 +47,20 @@ export interface RunResult {
   lineDiffHtml?: string // HTML with line-based diff highlighting
   lineCount?: { golden: number; output: number }
   lineChanges?: { added: number; removed: number; modified: number }
+  // JSON-based diff metrics
+  jsonDiffScore?: number // JSON structural diff score (0-1)
+  jsonDiffHtml?: string // HTML with JSON structural diff highlighting
+  jsonSimilarity?: number // JSON structural similarity (0-1)
+  normalizedGolden?: string // Normalized golden copy for comparison
+  normalizedOutput?: string // Normalized output for comparison
+  isValidJson?: { golden: boolean; output: boolean }
+  parseErrors?: { golden?: string; output?: string }
+  jsonChanges?: {
+    structuralChanges: number
+    valueChanges: number
+    additions: number
+    removals: number
+  }
 }
 
 export interface Run {

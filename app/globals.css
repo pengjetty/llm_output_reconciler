@@ -92,3 +92,61 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* JSON Diff Styles */
+.json-diff-container .json-equal { 
+  color: #6b7280; 
+}
+
+.json-diff-container .json-removed { 
+  background-color: #fef2f2; 
+  color: #dc2626;
+  text-decoration: line-through;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: inline-block;
+  margin: 1px;
+}
+
+.json-diff-container .json-added { 
+  background-color: #f0fdf4; 
+  color: #16a34a;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: inline-block;
+  margin: 1px;
+}
+
+.json-diff-container .json-change { 
+  display: block;
+  margin: 2px 0;
+}
+
+.json-diff-container .json-key { 
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.json-diff-container .json-array, 
+.json-diff-container .json-object {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+/* Dark mode styles */
+.dark .json-diff-container .json-equal {
+  color: #9ca3af;
+}
+
+.dark .json-diff-container .json-removed {
+  background-color: #450a0a;
+  color: #f87171;
+}
+
+.dark .json-diff-container .json-added {
+  background-color: #052e16;
+  color: #4ade80;
+}
+
+.dark .json-diff-container .json-key {
+  color: #a78bfa;
+}

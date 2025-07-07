@@ -34,18 +34,22 @@ function RunsPageContent() {
   } | null>(null)
 
   useEffect(() => {
-    setTests(loadTests())
-    setApiKeys(loadApiKeys())
-    
-    // Check for testId in URL params (from re-run functionality)
-    const testIdFromUrl = searchParams.get('testId')
-    if (testIdFromUrl) {
-      setSelectedTestId(testIdFromUrl)
-      toast({
-        title: "Test Pre-selected",
-        description: "A test has been pre-selected from your run history. Select models and run the comparison.",
-      })
+    const loadData = async () => {
+      setTests(await loadTests())
+      setApiKeys(await loadApiKeys())
+      
+      // Check for testId in URL params (from re-run functionality)
+      const testIdFromUrl = searchParams.get('testId')
+      if (testIdFromUrl) {
+        setSelectedTestId(testIdFromUrl)
+        toast({
+          title: "Test Pre-selected",
+          description: "A test has been pre-selected from your run history. Select models and run the comparison.",
+        })
+      }
     }
+    
+    loadData()
   }, [searchParams, toast])
 
   const selectedTest = useMemo(() => {
@@ -111,7 +115,7 @@ function RunsPageContent() {
         timestamp: new Date().toISOString(),
         apiKeysUsed: Object.fromEntries(selectedModels.map((m) => [m.provider, true])), // Mark providers used
       }
-      saveRun(newRun)
+      await saveRun(newRun)
 
       toast({
         title: "Comparison Complete",

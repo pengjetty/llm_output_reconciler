@@ -84,10 +84,31 @@ export function HistorySidebar({
         </h2>
         
         {/* Storage Usage */}
-        <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-md border">
-          <Label className="text-sm font-medium">
-            Storage Usage: {storageUsage.toFixed(2)} MB
-          </Label>
+        <div className={`mb-4 p-3 rounded-md border ${
+          storageUsage > 10 
+            ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' 
+            : storageUsage > 5 
+              ? 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
+              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">
+              Storage: {storageUsage.toFixed(2)} MB
+            </Label>
+            {storageUsage > 5 && (
+              <Badge variant={storageUsage > 10 ? "destructive" : "secondary"} className="text-xs">
+                {storageUsage > 10 ? "Critical" : "Warning"}
+              </Badge>
+            )}
+          </div>
+          {storageUsage > 5 && (
+            <p className="text-xs mt-2 text-gray-600 dark:text-gray-400">
+              <strong>{history.length} runs stored.</strong> {storageUsage > 10 
+                ? "Storage critical! Export data and delete old runs immediately."
+                : "Consider cleaning up old runs to prevent storage issues."
+              }
+            </p>
+          )}
         </div>
 
         {/* Quick Actions */}

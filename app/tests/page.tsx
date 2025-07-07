@@ -18,10 +18,13 @@ export default function TestsPage() {
   const [isCreateSectionOpen, setIsCreateSectionOpen] = useState(false)
 
   useEffect(() => {
-    setTests(loadTests())
+    const loadData = async () => {
+      setTests(await loadTests())
+    }
+    loadData()
   }, [])
 
-  const handleSaveEditedTest = (testData: Omit<Test, 'id' | 'createdAt'>) => {
+  const handleSaveEditedTest = async (testData: Omit<Test, 'id' | 'createdAt'>) => {
     if (!editingTest) return
 
     const updatedTest: Test = {
@@ -29,7 +32,7 @@ export default function TestsPage() {
       ...testData,
     }
 
-    const updatedTests = saveTest(updatedTest)
+    const updatedTests = await saveTest(updatedTest)
     setTests(updatedTests)
     toast({
       title: "Test Updated",
@@ -46,8 +49,8 @@ export default function TestsPage() {
     setEditingTest(test)
   }
 
-  const handleDeleteTest = (id: string, name: string) => {
-    const updatedTests = deleteTest(id)
+  const handleDeleteTest = async (id: string, name: string) => {
+    const updatedTests = await deleteTest(id)
     setTests(updatedTests)
     toast({
       title: "Test Deleted",
@@ -58,14 +61,14 @@ export default function TestsPage() {
     }
   }
 
-  const handleCreateTest = (testData: Omit<Test, 'id' | 'createdAt'>) => {
+  const handleCreateTest = async (testData: Omit<Test, 'id' | 'createdAt'>) => {
     const newTest: Test = {
       ...testData,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
     }
 
-    const updatedTests = saveTest(newTest)
+    const updatedTests = await saveTest(newTest)
     setTests(updatedTests)
     toast({
       title: "Test Created",

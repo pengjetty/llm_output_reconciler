@@ -53,11 +53,11 @@ function ResultsPageContent() {
     return true
   }, [])
 
-  // Function to reload all relevant state from localStorage and update conditionally
-  const updateAllLocalData = useCallback(() => {
-    const newRuns = loadRuns()
-    const newTests = loadTests()
-    const newStorageUsage = getStorageUsage()
+  // Function to reload all relevant state from IndexedDB and update conditionally
+  const updateAllLocalData = useCallback(async () => {
+    const newRuns = await loadRuns()
+    const newTests = await loadTests()
+    const newStorageUsage = await getStorageUsage()
 
     // Only update state if the data has genuinely changed (content comparison)
     setRuns((prevRuns) => (areArraysEqualById(prevRuns, newRuns) ? prevRuns : newRuns))
@@ -66,36 +66,40 @@ function ResultsPageContent() {
   }, [areArraysEqualById]) // `areArraysEqualById` is stable, so `updateAllLocalData` is stable
 
   useEffect(() => {
-    updateAllLocalData() // Load data on mount and whenever `updateAllLocalData` is re-created (which it isn't, due to useCallback)
+    const loadDataAndSelectRun = async () => {
+      await updateAllLocalData() // Load data on mount and whenever `updateAllLocalData` is re-created (which it isn't, due to useCallback)
 
-    const runId = searchParams.get("runId")
-    if (runId) {
-      // Re-load runs here to ensure the latest data is used for selection
-      // This is safe because updateAllLocalData is memoized and won't cause a loop.
-      const currentRuns = loadRuns() // Get fresh data for selection
-      const runToSelect = currentRuns.find((run) => run.id === runId)
-      if (runToSelect) {
-        setSelectedRun(runToSelect)
+      const runId = searchParams.get("runId")
+      if (runId) {
+        // Re-load runs here to ensure the latest data is used for selection
+        // This is safe because updateAllLocalData is memoized and won't cause a loop.
+        const currentRuns = await loadRuns() // Get fresh data for selection
+        const runToSelect = currentRuns.find((run) => run.id === runId)
+        if (runToSelect) {
+          setSelectedRun(runToSelect)
+        } else {
+          toast({
+            title: "Run Not Found",
+            description: "The requested run could not be found in history.",
+            variant: "destructive",
+          })
+        }
       } else {
-        toast({
-          title: "Run Not Found",
-          description: "The requested run could not be found in history.",
-          variant: "destructive",
-        })
+        // If no runId in URL, clear any previously selected run
+        setSelectedRun(null)
       }
-    } else {
-      // If no runId in URL, clear any previously selected run
-      setSelectedRun(null)
     }
+    
+    loadDataAndSelectRun()
   }, [searchParams, updateAllLocalData, toast]) // `updateAllLocalData` is a dependency, but it's memoized
 
   const handleLoadRun = (run: Run) => {
     setSelectedRun(run)
   }
 
-  const handleDeleteRun = (id: string) => {
-    deleteRun(id) // Updates localStorage
-    updateAllLocalData() // Re-sync state
+  const handleDeleteRun = async (id: string) => {
+    await deleteRun(id) // Updates IndexedDB
+    await updateAllLocalData() // Re-sync state
     toast({
       title: "Run Deleted",
       description: "The selected run has been removed from history.",
@@ -105,9 +109,9 @@ function ResultsPageContent() {
     }
   }
 
-  const handleClearAllData = () => {
-    clearAllData() // Updates localStorage
-    updateAllLocalData() // Re-sync state
+  const handleClearAllData = async () => {
+    await clearAllData() // Updates IndexedDB
+    await updateAllLocalData() // Re-sync state
     setSelectedRun(null)
     toast({
       title: "All Data Cleared",
@@ -115,8 +119,8 @@ function ResultsPageContent() {
     })
   }
 
-  const handleExportData = () => {
-    exportAllData()
+  const handleExportData = async () => {
+    await exportAllData()
     toast({
       title: "Data Exported",
       description: "Your comparison data has been downloaded as a JSON file.",
@@ -127,11 +131,11 @@ function ResultsPageContent() {
     const file = event.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const importedData = JSON.parse(e.target?.result as string)
-          importAllData(importedData) // Updates localStorage
-          updateAllLocalData() // Re-sync state
+          await importAllData(importedData) // Updates IndexedDB
+          await updateAllLocalData() // Re-sync state
           toast({
             title: "Data Imported",
             description: "Your comparison data has been successfully imported.",

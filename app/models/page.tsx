@@ -33,26 +33,30 @@ export default function ModelsPage() {
   const [showDeprecated, setShowDeprecated] = useState<boolean>(false)
 
   useEffect(() => {
-    const storedApiKeys = loadApiKeys()
-    setApiKeys(storedApiKeys)
+    const loadData = async () => {
+      const storedApiKeys = await loadApiKeys()
+      setApiKeys(storedApiKeys)
 
-    // Initialize selected models and provider enabled states from a hypothetical global config or default
-    // For now, we'll assume all models are initially unselected and providers disabled
-    const initialSelected: ModelConfig[] = []
-    const initialProviderEnabled: Record<string, boolean> = {}
+      // Initialize selected models and provider enabled states from a hypothetical global config or default
+      // For now, we'll assume all models are initially unselected and providers disabled
+      const initialSelected: ModelConfig[] = []
+      const initialProviderEnabled: Record<string, boolean> = {}
 
-    Object.entries(modelCapabilities).forEach(([providerName, models]) => {
-      initialProviderEnabled[providerName] = false // Default to disabled
+      Object.entries(modelCapabilities).forEach(([providerName, models]) => {
+        initialProviderEnabled[providerName] = false // Default to disabled
 
-      // If you had a way to persist selected models, load them here
-      // For this MVP, we'll just initialize based on API key presence for providers
-      if (storedApiKeys[providerName]) {
-        initialProviderEnabled[providerName] = true
-      }
-    })
+        // If you had a way to persist selected models, load them here
+        // For this MVP, we'll just initialize based on API key presence for providers
+        if (storedApiKeys[providerName]) {
+          initialProviderEnabled[providerName] = true
+        }
+      })
 
-    setSelectedModels(initialSelected) // This will be managed by the Run page
-    setProviderEnabled(initialProviderEnabled)
+      setSelectedModels(initialSelected) // This will be managed by the Run page
+      setProviderEnabled(initialProviderEnabled)
+    }
+    
+    loadData()
   }, [])
 
   const handleApiKeyChange = (provider: string, value: string) => {
@@ -65,8 +69,8 @@ export default function ModelsPage() {
     // This toggle primarily affects API key input enablement.
   }
 
-  const handleSaveSettings = () => {
-    saveApiKeys(apiKeys)
+  const handleSaveSettings = async () => {
+    await saveApiKeys(apiKeys)
     toast({
       title: "Settings Saved",
       description: "Your API keys have been updated.",

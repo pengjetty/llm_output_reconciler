@@ -6,7 +6,7 @@ import { anthropic } from "@ai-sdk/anthropic"
 import { google, createGoogleGenerativeAI } from "@ai-sdk/google"
 import { xai } from "@ai-sdk/xai"
 import type { ModelConfig, RunResult, StoredApiKeys } from "@/lib/types"
-import { calculateDiff, calculateSemanticSimilarity, calculateLineDiff } from "@/lib/diff"
+import { calculateDiff, calculateSemanticSimilarity, calculateLineDiff, calculateJsonDiff } from "@/lib/diff"
 
 // Enhanced parallel processing with real-time feedback
 export async function runComparison(
@@ -134,6 +134,7 @@ async function runSingleModel(
     
     const diffResult = calculateDiff(goldenCopy, text)
     const lineDiffResult = calculateLineDiff(goldenCopy, text)
+    const jsonDiffResult = calculateJsonDiff(goldenCopy, text)
     const semanticSimilarity = calculateSemanticSimilarity(goldenCopy, text)
 
     return {
@@ -154,6 +155,15 @@ async function runSingleModel(
       lineDiffHtml: lineDiffResult.diffHtml,
       lineCount: lineDiffResult.lineCount,
       lineChanges: lineDiffResult.changes,
+      // JSON-based diff data
+      jsonDiffScore: jsonDiffResult.diffScore,
+      jsonDiffHtml: jsonDiffResult.diffHtml,
+      jsonSimilarity: jsonDiffResult.similarity,
+      normalizedGolden: jsonDiffResult.normalizedGolden,
+      normalizedOutput: jsonDiffResult.normalizedOutput,
+      isValidJson: jsonDiffResult.isValidJson,
+      parseErrors: jsonDiffResult.parseErrors,
+      jsonChanges: jsonDiffResult.changes,
     }
   } catch (error: any) {
     console.error(`Error running model ${provider}/${model}:`, error)

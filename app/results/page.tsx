@@ -1,11 +1,8 @@
 "use client"
 
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Label } from "@/components/ui/label"
 import type React from "react"
 import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Run, Test } from "@/lib/types"
 import {
@@ -21,17 +18,6 @@ import { useToast } from "@/hooks/use-toast"
 import { HistorySidebar } from "@/components/history-sidebar"
 import { ResultDetail } from "@/components/result-detail"
 import { useRouter } from "next/navigation"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 
 function ResultsPageContent() {
   const { toast } = useToast()
@@ -41,8 +27,9 @@ function ResultsPageContent() {
   const [tests, setTests] = useState<Test[]>([])
   const [selectedRun, setSelectedRun] = useState<Run | null>(null)
   const [storageUsage, setStorageUsage] = useState(0)
+  // Best similarity score for the selected run (updated by ResultDetail)
+  const [bestSimilarityScore, setBestSimilarityScore] = useState<number | null>(null)
 
-  const MAX_STORAGE_MB = 5 // Keep consistent with lib/storage.ts
 
   // Helper for deep comparison of arrays of objects by ID
   const areArraysEqualById = useCallback((arr1: any[], arr2: any[]) => {
@@ -77,6 +64,7 @@ function ResultsPageContent() {
         const runToSelect = currentRuns.find((run) => run.id === runId)
         if (runToSelect) {
           setSelectedRun(runToSelect)
+          setBestSimilarityScore(null) // Reset best similarity when changing runs
         } else {
           toast({
             title: "Run Not Found",
@@ -87,6 +75,7 @@ function ResultsPageContent() {
       } else {
         // If no runId in URL, clear any previously selected run
         setSelectedRun(null)
+        setBestSimilarityScore(null)
       }
     }
     
@@ -95,6 +84,7 @@ function ResultsPageContent() {
 
   const handleLoadRun = (run: Run) => {
     setSelectedRun(run)
+    setBestSimilarityScore(null) // Reset best similarity when changing runs
   }
 
   const handleDeleteRun = async (id: string) => {
@@ -184,10 +174,15 @@ function ResultsPageContent() {
         onImportData={handleImportData}
         storageUsage={storageUsage}
         selectedRunId={selectedRun?.id}
+        bestSimilarityScore={bestSimilarityScore}
       />
       <main className="flex-1 p-6 md:p-8 lg:p-10 overflow-auto">
         {selectedRun ? (
-          <ResultDetail run={selectedRun} tests={tests} />
+          <ResultDetail 
+            run={selectedRun} 
+            tests={tests}
+            setBestSimilarityScore={setBestSimilarityScore}
+          />
         ) : (
           <Card>
             <CardHeader>

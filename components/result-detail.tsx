@@ -39,12 +39,17 @@ import { useToast } from "@/hooks/use-toast"
 interface ResultDetailProps {
   run: Run
   tests: Test[]
+  setBestSimilarityScore: (score: number | null) => void
 }
 
-export function ResultDetail({ run, tests }: ResultDetailProps) {
+export function ResultDetail({ 
+  run, 
+  tests, 
+  setBestSimilarityScore 
+}: ResultDetailProps) {
   const { toast } = useToast()
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({})
-  // Global diff controls - apply to all model results
+  // Local diff controls - apply to all model results
   const [showDiffHighlight, setShowDiffHighlight] = useState<boolean>(true)
   const [diffMode, setDiffMode] = useState<'word' | 'line' | 'json'>('word')
   const [viewMode, setViewMode] = useState<'raw' | 'normalized'>('raw')
@@ -237,7 +242,7 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
 
   // Dynamic sorting based on current view/diff settings
   const sortedResults = useMemo(() => {
-    return [...run.results]
+    const sorted = [...run.results]
       .filter(result => !result.error)
       .sort((a, b) => {
         const aKey = `${a.provider}-${a.model}`
@@ -255,7 +260,19 @@ export function ResultDetail({ run, tests }: ResultDetailProps) {
         // Secondary sort: semantic similarity (higher is better)
         return (b.semanticSimilarity || 0) - (a.semanticSimilarity || 0)
       })
-  }, [run.results, effectiveViewMode, effectiveDiffMode])
+    
+    // Update the best similarity score for the sidebar
+    if (sorted.length > 0) {
+      const bestResult = sorted[0]
+      const bestKey = `${bestResult.provider}-${bestResult.model}`
+      const bestSimilarity = getDynamicSimilarity(bestResult, bestKey)
+      setBestSimilarityScore(bestSimilarity)
+    } else {
+      setBestSimilarityScore(null)
+    }
+    
+    return sorted
+  }, [run.results, effectiveViewMode, effectiveDiffMode, getDynamicSimilarity, setBestSimilarityScore])
 
   const errorResults = run.results.filter(result => result.error)
 

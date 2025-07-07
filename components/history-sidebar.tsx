@@ -32,6 +32,7 @@ interface HistorySidebarProps {
   onImportData: (event: React.ChangeEvent<HTMLInputElement>) => void
   storageUsage: number
   selectedRunId?: string
+  bestSimilarityScore?: number | null
 }
 
 export function HistorySidebar({
@@ -45,6 +46,7 @@ export function HistorySidebar({
   onImportData,
   storageUsage,
   selectedRunId,
+  bestSimilarityScore,
 }: HistorySidebarProps) {
   const getTestName = (testId: string) => {
     const test = tests.find(t => t.id === testId)
@@ -65,7 +67,7 @@ export function HistorySidebar({
     const successfulResults = run.results.filter(r => !r.error)
     if (successfulResults.length === 0) return null
     return successfulResults.reduce((best, current) => 
-      current.diffScore < best.diffScore ? current : best
+      (current.similarity ?? 0) > (best.similarity ?? 0) ? current : best
     )
   }
 
@@ -253,12 +255,24 @@ export function HistorySidebar({
                               <div className="flex items-center space-x-1">
                                 <Star className="h-3 w-3 text-yellow-500" />
                                 <span className="text-xs font-medium">
-                                  {Math.round((bestResult.similarity ?? 0) * 100)}%
+                                  {(() => {
+                                    // Use shared best similarity score if this is the selected run
+                                    if (isSelected && bestSimilarityScore !== null && bestSimilarityScore !== undefined) {
+                                      return Math.round(bestSimilarityScore * 100)
+                                    }
+                                    // Fallback to stored similarity for non-selected runs
+                                    return Math.round((bestResult.similarity ?? 0) * 100)
+                                  })()}%
                                 </span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>Best result: {bestResult.provider}/{bestResult.model}</p>
+                              {isSelected && bestSimilarityScore !== null && bestSimilarityScore !== undefined && (
+                                <p className="text-xs text-gray-400">
+                                  Current diff mode similarity
+                                </p>
+                              )}
                             </TooltipContent>
                           </Tooltip>
                         )}

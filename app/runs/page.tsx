@@ -123,7 +123,7 @@ function RunsPageContent() {
       })
       
       // Refresh tests to ensure they're still available
-      setTests(loadTests())
+      setTests(await loadTests())
       
       router.push(`/results?runId=${newRun.id}`) // Redirect to results page for the new run
     } catch (error: any) {
@@ -138,7 +138,7 @@ function RunsPageContent() {
       setProgress(null)
       
       // Refresh tests after any operation
-      setTests(loadTests())
+      setTests(await loadTests())
     }
   }
 

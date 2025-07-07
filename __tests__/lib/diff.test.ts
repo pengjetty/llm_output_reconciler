@@ -1,4 +1,4 @@
-import { calculateJsonDiff, inspectJsonNormalization } from '../../lib/diff'
+import { calculateJsonDiff, inspectJsonNormalization, calculateDiff, calculateLineDiff } from '../../lib/diff'
 
 describe('JSON Diff Algorithm', () => {
   describe('calculateJsonDiff', () => {
@@ -338,6 +338,395 @@ describe('JSON Normalization Logic', () => {
       
       expect(result.error).toBeUndefined()
       expect(result.parsed.a.b.c.d.e).toBe(1)
+    })
+  })
+
+  describe('Key-Value Pair Matching Logic', () => {
+    test('should calculate exact percentage for partially matching objects', () => {
+      const golden = '{"a": 1, "b": 2, "c": 3, "d": 4}'
+      const output = '{"a": 1, "b": 2, "c": 999, "d": 888}'
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // 2 out of 4 key-value pairs match exactly (a=1, b=2)
+      expect(result.similarity).toBe(0.5)
+      expect(result.diffScore).toBe(0.5)
+    })
+
+    test('should calculate exact percentage for objects with different keys', () => {
+      const golden = '{"a": 1, "b": 2}'
+      const output = '{"a": 1, "c": 3}'
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // 1 out of 3 total keys match exactly (a=1)
+      // Total keys: a, b, c
+      expect(result.similarity).toBe(1/3)
+      expect(result.diffScore).toBe(2/3)
+    })
+
+    test('should handle exact string matching without fuzzy logic', () => {
+      const golden = '{"name": "John", "city": "New York"}'
+      const output = '{"name": "John", "city": "New york"}'  // Different case
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Only 1 out of 2 key-value pairs match exactly (name="John")
+      expect(result.similarity).toBe(0.5)
+      expect(result.diffScore).toBe(0.5)
+    })
+
+    test('should handle nested objects with partial matches', () => {
+      const golden = '{"user": {"name": "John", "age": 30}, "active": true}'
+      const output = '{"user": {"name": "John", "age": 31}, "active": true}'
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Granular counting:
+      // - "active": true (1 match)
+      // - user.name: "John" (1 match)
+      // - user.age: 30 vs 31 (0 matches)
+      // Total: 2 matches out of 3 = 2/3
+      expect(result.similarity).toBe(2/3)
+      expect(result.diffScore).toBe(1/3)
+    })
+
+    test('should handle arrays with exact element matching', () => {
+      const golden = '{"items": [1, 2, 3], "count": 3}'
+      const output = '{"items": [1, 2, 4], "count": 3}'
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Granular counting:
+      // - "count": 3 (1 match)
+      // - items[0]: 1 (1 match)
+      // - items[1]: 2 (1 match)  
+      // - items[2]: 3 vs 4 (0 matches)
+      // Total: 3 matches out of 4 = 3/4 = 0.75
+      expect(result.similarity).toBe(0.75)
+      expect(result.diffScore).toBe(0.25)
+    })
+
+    test('should handle completely different objects', () => {
+      const golden = '{"a": 1, "b": 2}'
+      const output = '{"c": 3, "d": 4}'
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // No key-value pairs match
+      expect(result.similarity).toBe(0)
+      expect(result.diffScore).toBe(1)
+    })
+
+    test('should handle empty vs non-empty objects', () => {
+      const golden = '{}'
+      const output = '{"a": 1}'
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // 0 out of 1 key-value pairs match
+      expect(result.similarity).toBe(0)
+      expect(result.diffScore).toBe(1)
+    })
+
+    test('should verify no LCS string matching is used', () => {
+      const golden = '{"message": "Hello World"}'
+      const output = '{"message": "Hello Universe"}'  // Similar but not exact
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Even though strings are similar, they don't match exactly
+      expect(result.similarity).toBe(0)
+      expect(result.diffScore).toBe(1)
+    })
+
+    test('should handle array objects with granular matching', () => {
+      const golden = `{
+        "users": [
+          {"id": 1, "name": "Alice", "role": "admin"},
+          {"id": 2, "name": "Bob", "role": "user"}
+        ],
+        "total": 2,
+        "status": "active"
+      }`
+      
+      const output = `{
+        "users": [
+          {"id": 1, "name": "Alice", "role": "admin"},
+          {"id": 2, "name": "Bob", "role": "moderator"}
+        ],
+        "total": 2,
+        "status": "active"
+      }`
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Granular counting of all key-value pairs:
+      // - "total": 2 (1 match)
+      // - "status": "active" (1 match)
+      // - users[0].id: 1 (1 match)
+      // - users[0].name: "Alice" (1 match)
+      // - users[0].role: "admin" (1 match)
+      // - users[1].id: 2 (1 match)
+      // - users[1].name: "Bob" (1 match)
+      // - users[1].role: "user" vs "moderator" (0 matches)
+      // Total: 7 matches out of 8 = 7/8 = 0.875
+      expect(result.similarity).toBe(7/8)
+      expect(result.diffScore).toBe(1/8)
+    })
+
+    test('should handle arrays with completely different objects', () => {
+      const golden = `{
+        "items": [
+          {"type": "book", "title": "1984"},
+          {"type": "book", "title": "Brave New World"}
+        ],
+        "count": 2
+      }`
+      
+      const output = `{
+        "items": [
+          {"type": "movie", "title": "Inception"},
+          {"type": "movie", "title": "Matrix"}
+        ],
+        "count": 2
+      }`
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Granular counting:
+      // - "count": 2 (1 match)
+      // - items[0].type: "book" vs "movie" (0 matches)
+      // - items[0].title: "1984" vs "Inception" (0 matches)
+      // - items[1].type: "book" vs "movie" (0 matches)
+      // - items[1].title: "Brave New World" vs "Matrix" (0 matches)
+      // Total: 1 match out of 5 = 1/5 = 0.2
+      expect(result.similarity).toBe(0.2)
+      expect(result.diffScore).toBe(0.8)
+    })
+
+    test('should handle arrays with different lengths', () => {
+      const golden = `{
+        "tags": ["javascript", "react", "typescript"],
+        "language": "en"
+      }`
+      
+      const output = `{
+        "tags": ["javascript", "react"],
+        "language": "en"
+      }`
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Only 1 out of 2 top-level key-value pairs match exactly:
+      // - "language": "en" matches exactly
+      // - "tags" array doesn't match exactly (different lengths)
+      expect(result.similarity).toBe(0.5)
+      expect(result.diffScore).toBe(0.5)
+    })
+
+    test('should handle nested arrays with partial matches', () => {
+      const golden = `{
+        "departments": [
+          {
+            "name": "Engineering",
+            "employees": [
+              {"name": "Alice", "level": "senior"},
+              {"name": "Bob", "level": "junior"}
+            ]
+          }
+        ],
+        "company": "TechCorp"
+      }`
+      
+      const output = `{
+        "departments": [
+          {
+            "name": "Engineering", 
+            "employees": [
+              {"name": "Alice", "level": "senior"},
+              {"name": "Bob", "level": "mid"}
+            ]
+          }
+        ],
+        "company": "TechCorp"
+      }`
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Only 1 out of 2 top-level key-value pairs match exactly:
+      // - "company": "TechCorp" matches exactly
+      // - "departments" array doesn't match exactly (Bob's level is different in nested structure)
+      expect(result.similarity).toBe(0.5)
+      expect(result.diffScore).toBe(0.5)
+    })
+
+    test('should handle arrays with same elements but different order', () => {
+      const golden = `{
+        "priorities": [
+          {"id": 1, "task": "Fix bug"},
+          {"id": 2, "task": "Add feature"}
+        ],
+        "project": "WebApp"
+      }`
+      
+      const output = `{
+        "priorities": [
+          {"id": 2, "task": "Add feature"},
+          {"id": 1, "task": "Fix bug"}
+        ],
+        "project": "WebApp"
+      }`
+      
+      const result = calculateJsonDiff(golden, output)
+      
+      // Both key-value pairs should match exactly because:
+      // - "project": "WebApp" matches exactly
+      // - "priorities" array should match exactly (same elements, normalized by id)
+      expect(result.similarity).toBe(1)
+      expect(result.diffScore).toBe(0)
+    })
+  })
+})
+
+describe('Word-Level Diff Algorithm', () => {
+  describe('calculateDiff', () => {
+    test('should handle identical texts', () => {
+      const golden = 'Hello world'
+      const output = 'Hello world'
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBe(1)
+      expect(result.diffScore).toBe(0)
+      expect(result.changes.added).toBe(0)
+      expect(result.changes.removed).toBe(0)
+      expect(result.changes.modified).toBe(0)
+    })
+
+    test('should handle completely different texts', () => {
+      const golden = 'Hello world'
+      const output = 'Goodbye universe'
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBe(0)
+      expect(result.diffScore).toBe(1)
+      expect(result.changes.added).toBeGreaterThan(0)
+      expect(result.changes.removed).toBeGreaterThan(0)
+    })
+
+    test('should handle partial word matches', () => {
+      const golden = 'Hello world test'
+      const output = 'Hello universe test'
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBeGreaterThan(0)
+      expect(result.similarity).toBeLessThan(1)
+      expect(result.diffScore).toBeGreaterThan(0)
+      expect(result.diffScore).toBeLessThan(1)
+    })
+
+    test('should handle word additions', () => {
+      const golden = 'Hello world'
+      const output = 'Hello beautiful world'
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBeLessThan(1)
+      expect(result.changes.added).toBe(1)
+      expect(result.changes.removed).toBe(0)
+    })
+
+    test('should handle word removals', () => {
+      const golden = 'Hello beautiful world'
+      const output = 'Hello world'
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBeLessThan(1)
+      expect(result.changes.removed).toBe(1)
+      expect(result.changes.added).toBe(0)
+    })
+
+    test('should handle empty strings', () => {
+      const golden = ''
+      const output = ''
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBe(1)
+      expect(result.diffScore).toBe(0)
+    })
+
+    test('should handle one empty string', () => {
+      const golden = 'Hello world'
+      const output = ''
+      
+      const result = calculateDiff(golden, output)
+      
+      expect(result.similarity).toBe(0)
+      expect(result.diffScore).toBe(1)
+      expect(result.changes.removed).toBe(2)
+    })
+  })
+})
+
+describe('Line-Level Diff Algorithm', () => {
+  describe('calculateLineDiff', () => {
+    test('should handle identical multi-line texts', () => {
+      const golden = 'Line 1\nLine 2\nLine 3'
+      const output = 'Line 1\nLine 2\nLine 3'
+      
+      const result = calculateLineDiff(golden, output)
+      
+      expect(result.similarity).toBe(1)
+      expect(result.diffScore).toBe(0)
+      expect(result.changes.added).toBe(0)
+      expect(result.changes.removed).toBe(0)
+    })
+
+    test('should handle line additions', () => {
+      const golden = 'Line 1\nLine 2'
+      const output = 'Line 1\nLine 2\nLine 3'
+      
+      const result = calculateLineDiff(golden, output)
+      
+      expect(result.similarity).toBeLessThan(1)
+      expect(result.changes.added).toBe(1)
+      expect(result.changes.removed).toBe(0)
+    })
+
+    test('should handle line removals', () => {
+      const golden = 'Line 1\nLine 2\nLine 3'
+      const output = 'Line 1\nLine 3'
+      
+      const result = calculateLineDiff(golden, output)
+      
+      expect(result.similarity).toBeLessThan(1)
+      expect(result.changes.removed).toBe(1)
+      expect(result.changes.added).toBe(0)
+    })
+
+    test('should handle line modifications', () => {
+      const golden = 'Line 1\nLine 2\nLine 3'
+      const output = 'Line 1\nModified Line 2\nLine 3'
+      
+      const result = calculateLineDiff(golden, output)
+      
+      expect(result.similarity).toBeLessThan(1)
+      expect(result.changes.modified).toBe(1)
+    })
+
+    test('should handle completely different texts', () => {
+      const golden = 'Line A\nLine B'
+      const output = 'Line X\nLine Y'
+      
+      const result = calculateLineDiff(golden, output)
+      
+      expect(result.similarity).toBe(0)
+      expect(result.diffScore).toBe(1)
     })
   })
 })

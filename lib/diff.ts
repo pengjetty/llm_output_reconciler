@@ -30,6 +30,7 @@ interface DiffPart {
   text: string
   goldenText?: string
   outputText?: string
+  cost?: number // Actual cost of this operation (0.5 for similar, 1.0 for different)
 }
 
 export function calculateDiff(golden: string, output: string): DiffResult {
@@ -136,11 +137,16 @@ function computeWordDiff(golden: string[], output: string[]): DiffPart[] {
         break
         
       case DiffOperation.REPLACE:
+        // Calculate the actual cost that was used for this replacement
+        const isSimilar = calculateWordSimilarity(golden[i - 1], output[j - 1]) > 0.8
+        const replaceCost = isSimilar ? 0.5 : 1.0
+        
         diffParts.unshift({
           operation: DiffOperation.REPLACE,
           text: output[j - 1],
           goldenText: golden[i - 1],
           outputText: output[j - 1],
+          cost: replaceCost,
         })
         i--
         j--
@@ -192,29 +198,36 @@ function calculateStats(diffParts: DiffPart[]): {
   let modified = 0
   let equal = 0
   let totalDistance = 0
+  let totalCost = 0 // Track the actual weighted cost
   
   diffParts.forEach(part => {
     switch (part.operation) {
       case DiffOperation.INSERT:
         added++
         totalDistance++
+        totalCost += 1.0
         break
       case DiffOperation.DELETE:
         removed++
         totalDistance++
+        totalCost += 1.0
         break
       case DiffOperation.REPLACE:
         modified++
         totalDistance++
+        // Use the actual cost for this replacement (0.5 for similar, 1.0 for different)
+        totalCost += (part.cost || 1.0)
         break
       case DiffOperation.EQUAL:
         equal++
+        totalCost += 0.0
         break
     }
   })
   
   const total = added + removed + modified + equal
-  const diffScore = total === 0 ? 0 : (added + removed + modified) / total
+  // Use the weighted cost instead of raw counts for a more accurate diff score
+  const diffScore = total === 0 ? 0 : totalCost / total
   
   return {
     diffScore,
@@ -507,41 +520,65 @@ function deepEqual(obj1: any, obj2: any, tolerance: number = 0): boolean {
 function calculateObjectSimilarity(obj1: any, obj2: any): number {
   if (deepEqual(obj1, obj2)) return 1.0
   
-  // If types don't match, similarity is 0
-  if (typeof obj1 !== typeof obj2) return 0
-  if (obj1 == null || obj2 == null) return 0
+  // Use granular similarity calculation for better accuracy
+  const granular = calculateGranularSimilarity(obj1, obj2)
+  return granular.matches / granular.total
+}
+
+// New granular similarity calculation that counts all individual key-value pairs
+function calculateGranularSimilarity(obj1: any, obj2: any): { matches: number; total: number } {
+  // If types don't match, count as 1 total with 0 matches
+  if (typeof obj1 !== typeof obj2) return { matches: 0, total: 1 }
+  if (obj1 == null || obj2 == null) return { matches: obj1 === obj2 ? 1 : 0, total: 1 }
   
-  // For primitives, either exact match or no match
-  if (typeof obj1 !== 'object') return obj1 === obj2 ? 1.0 : 0
+  // For primitives, count as 1 total with 1 match if equal, 0 if not
+  if (typeof obj1 !== 'object') return { matches: obj1 === obj2 ? 1 : 0, total: 1 }
   
-  // For arrays, calculate percentage of matching elements
+  // For arrays, recursively compare each element
   if (Array.isArray(obj1) && Array.isArray(obj2)) {
     const maxLen = Math.max(obj1.length, obj2.length)
-    if (maxLen === 0) return 1.0
+    if (maxLen === 0) return { matches: 1, total: 1 }
     
-    let matches = 0
+    let totalMatches = 0
+    let totalCount = 0
+    
     const minLen = Math.min(obj1.length, obj2.length)
     for (let i = 0; i < minLen; i++) {
-      if (deepEqual(obj1[i], obj2[i])) matches++
+      const result = calculateGranularSimilarity(obj1[i], obj2[i])
+      totalMatches += result.matches
+      totalCount += result.total
     }
-    return matches / maxLen
+    
+    // Count missing elements as non-matches
+    const missingElements = maxLen - minLen
+    totalCount += missingElements
+    
+    return { matches: totalMatches, total: totalCount }
   }
   
-  // For objects, calculate percentage of matching key-value pairs
+  // For objects, recursively compare all key-value pairs
   const keys1 = Object.keys(obj1)
   const keys2 = Object.keys(obj2)
   const allKeys = new Set([...keys1, ...keys2])
   
-  if (allKeys.size === 0) return 1.0
+  if (allKeys.size === 0) return { matches: 1, total: 1 }
   
-  let matches = 0
+  let totalMatches = 0
+  let totalCount = 0
+  
   allKeys.forEach(key => {
-    if (key in obj1 && key in obj2 && deepEqual(obj1[key], obj2[key])) {
-      matches++
+    if (key in obj1 && key in obj2) {
+      // Both objects have this key, compare values recursively
+      const result = calculateGranularSimilarity(obj1[key], obj2[key])
+      totalMatches += result.matches
+      totalCount += result.total
+    } else {
+      // Key exists in only one object, count as non-match
+      totalCount += 1
     }
   })
   
-  return matches / allKeys.size
+  return { matches: totalMatches, total: totalCount }
 }
 
 function calculateLCSArrayDiff(arr1: any[], arr2: any[]): ArrayDiffOperation[] {
@@ -829,9 +866,9 @@ export function calculateJsonDiff(golden: string, output: string): JsonDiffResul
   // Generate HTML diff using normalized JSON with improved array handling
   const diffHtml = generateImprovedJsonDiffHtml(goldenNorm.parsed, outputNorm.parsed, goldenNorm.normalized, outputNorm.normalized)
   
-  // Combine scores (weighted toward structural similarity for valid JSON)
+  // Use pure structural similarity for JSON, text diff for non-JSON
   const finalSimilarity = goldenValid && outputValid 
-    ? (structuralSimilarity * 0.7 + normalizedTextDiff.similarity * 0.3)
+    ? structuralSimilarity
     : normalizedTextDiff.similarity
   
   return {

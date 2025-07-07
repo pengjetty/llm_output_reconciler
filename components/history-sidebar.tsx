@@ -95,18 +95,10 @@ export function HistorySidebar({
             <Label className="text-sm font-medium">
               Storage: {storageUsage.toFixed(2)} MB
             </Label>
-            {storageUsage > 5 && (
-              <Badge variant={storageUsage > 10 ? "destructive" : "secondary"} className="text-xs">
-                {storageUsage > 10 ? "Critical" : "Warning"}
-              </Badge>
-            )}
           </div>
-          {storageUsage > 5 && (
+          {storageUsage > 50 && (
             <p className="text-xs mt-2 text-gray-600 dark:text-gray-400">
-              <strong>{history.length} runs stored.</strong> {storageUsage > 10 
-                ? "Storage critical! Export data and delete old runs immediately."
-                : "Consider cleaning up old runs to prevent storage issues."
-              }
+              <strong>{history.length} runs stored.</strong> Consider cleaning up old runs to prevent storage issues.
             </p>
           )}
         </div>
@@ -261,7 +253,7 @@ export function HistorySidebar({
                               <div className="flex items-center space-x-1">
                                 <Star className="h-3 w-3 text-yellow-500" />
                                 <span className="text-xs font-medium">
-                                  {Math.round((bestResult.similarity || (1 - bestResult.diffScore)) * 100)}%
+                                  {Math.round((bestResult.similarity ?? 0) * 100)}%
                                 </span>
                               </div>
                             </TooltipTrigger>

@@ -1,8 +1,15 @@
-# LLM Output Reconciler
+<div align="center">
+    <img src="public/icon.svg" alt="llm output reconciler logo" width="256" height="256">
+    <h1>LLM Output Reconciler</h1>
+</div>
 
 A powerful web application for comparing outputs from multiple Large Language Models (LLMs) against a golden copy reference. Built with Next.js 15, TypeScript, and shadcn/ui components.
 
 ## Features
+
+<div align="center">
+    <img src="public/llm-reconciler-homepage.png" alt="llm output reconciler homepage" width="1024">
+</div>
 
 ### 🤖 Multi-Model Support
 - **OpenAI**: GPT-4.1 series, GPT-4o series, GPT-3.5 series
@@ -38,6 +45,25 @@ A powerful web application for comparing outputs from multiple Large Language Mo
 - **Dark mode support** with theme persistence
 - **Accessibility features** with keyboard navigation
 - **Real-time progress tracking** during model execution
+
+## Screenshots
+
+### Test management page
+<div align="center">
+    <img src="public/llm-reconciler-test-management.png" alt="llm output reconciler test mamangement page" width="1024">
+</div>
+
+### Run details page
+<div align="center">
+    <img src="public/llm-reconciler-run-details.png" alt="llm output reconciler run details page" width="1024">
+</div>
+
+### Run management page
+<div align="center">
+    <img src="public/llm-reconciler-run-management.png" alt="llm output reconciler run mamangement page" width="1024">
+</div>
+
+
 
 ## Getting Started
 

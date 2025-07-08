@@ -8,6 +8,30 @@ import { xai } from "@ai-sdk/xai"
 import type { ModelConfig, RunResult, StoredApiKeys } from "@/lib/types"
 import { calculateDiff, calculateSemanticSimilarity, calculateLineDiff, calculateJsonDiff } from "@/lib/diff"
 
+// Helper function to check if a string is valid JSON
+function isValidJson(str: string): boolean {
+  try {
+    JSON.parse(str.trim())
+    return true
+  } catch {
+    try {
+      // Try with markdown formatting removed
+      const extracted = str.trim()
+        .replace(/^```(?:json|javascript|js)?\s*\n?/i, '')
+        .replace(/\n?```\s*$/i, '')
+        .trim()
+      if (extracted.startsWith('`') && extracted.endsWith('`')) {
+        JSON.parse(extracted.slice(1, -1).trim())
+      } else {
+        JSON.parse(extracted)
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
+}
+
 // Enhanced parallel processing with real-time feedback
 export async function runComparison(
   prompt: string,
@@ -137,6 +161,11 @@ async function runSingleModel(
     const jsonDiffResult = calculateJsonDiff(goldenCopy, text)
     const semanticSimilarity = calculateSemanticSimilarity(goldenCopy, text)
 
+    // Determine the default similarity to match the UI's default diff method
+    // Force JSON mode if golden copy is JSON, otherwise use word-level diff
+    const isGoldenCopyJson = isValidJson(goldenCopy)
+    const defaultSimilarity = isGoldenCopyJson ? jsonDiffResult.similarity : diffResult.similarity
+
     return {
       model: model,
       provider: provider,
@@ -144,7 +173,7 @@ async function runSingleModel(
       diffScore: diffResult.diffScore,
       diffHtml: diffResult.diffHtml,
       error: false,
-      similarity: diffResult.similarity,
+      similarity: defaultSimilarity,
       levenshteinDistance: diffResult.levenshteinDistance,
       wordCount: diffResult.wordCount,
       changes: diffResult.changes,

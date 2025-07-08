@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { StoredRun, Test } from "@/lib/types"
-import { History, Upload, Download, Trash2, Play, Eye, MoreVertical, Star, Clock, Archive } from "lucide-react"
+import { History, Upload, Download, Trash2, Play, Eye, MoreVertical, Star, Clock } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -27,7 +27,6 @@ interface HistorySidebarProps {
   onLoadRun: (run: StoredRun) => void
   onRerunTest: (run: StoredRun) => void
   onDeleteRun: (runId: string) => void
-  onClearHistory: () => void
   onExportData: () => void
   onImportData: (event: React.ChangeEvent<HTMLInputElement>) => void
   storageUsage: number
@@ -41,7 +40,6 @@ export function HistorySidebar({
   onLoadRun,
   onRerunTest,
   onDeleteRun,
-  onClearHistory,
   onExportData,
   onImportData,
   storageUsage,
@@ -118,9 +116,6 @@ export function HistorySidebar({
             </Button>
             <input id="import-file" type="file" accept=".json" className="hidden" onChange={onImportData} />
           </label>
-          <Button variant="destructive" onClick={onClearHistory} size="sm">
-            <Archive className="mr-2 h-4 w-4" /> Clear All History
-          </Button>
         </div>
 
         {/* Run History */}

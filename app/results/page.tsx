@@ -9,7 +9,6 @@ import {
   loadRuns,
   loadTests,
   deleteRun,
-  clearAllData,
   exportAllData,
   importAllData,
   getStorageUsage,
@@ -170,15 +169,6 @@ function ResultsPageContent() {
     }
   }
 
-  const handleClearAllData = async () => {
-    await clearAllData() // Updates IndexedDB
-    await updateAllLocalData() // Re-sync state
-    setSelectedRun(null)
-    toast({
-      title: "All Data Cleared",
-      description: "All application data (API keys, tests, runs) has been removed.",
-    })
-  }
 
   const handleExportData = async () => {
     await exportAllData()
@@ -240,7 +230,6 @@ function ResultsPageContent() {
         onLoadRun={handleLoadRun}
         onRerunTest={handleRerunTest}
         onDeleteRun={handleDeleteRun}
-        onClearHistory={handleClearAllData}
         onExportData={handleExportData}
         onImportData={handleImportData}
         storageUsage={storageUsage}

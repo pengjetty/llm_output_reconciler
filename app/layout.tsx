@@ -10,7 +10,12 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "LLM Output Comparison Tool",
   description: "Compare outputs from various LLM models against a golden copy.",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

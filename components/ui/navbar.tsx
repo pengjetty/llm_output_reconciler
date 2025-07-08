@@ -20,7 +20,7 @@ export function Navbar() {
     <nav className="bg-gray-900 text-white p-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
         <Link href="/" className="text-2xl font-bold flex items-center">
-          <Home className="mr-2 h-6 w-6" /> LLM Compare
+          <Home className="mr-2 h-6 w-6" /> LLM output reconciler
         </Link>
         <div className="flex space-x-4">
           {navItems.map((item) => {

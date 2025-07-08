@@ -27,10 +27,10 @@ export default function HomePage() {
         <div className="text-center mb-16">
           <div className="flex items-center justify-center mb-6">
             <div className="p-3 bg-blue-600 rounded-full mr-4">
-              <Brain className="h-8 w-8 text-white" />
+              <img src="/icon.svg" alt="LLM output reconciler" className="h-8 w-8" />
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white">
-              LLM Compare
+              LLM output reconciler
             </h1>
           </div>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
@@ -100,7 +100,7 @@ export default function HomePage() {
         {/* How to Use Section */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
-            How to Use LLM Compare
+            How to Use LLM output reconciler
           </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="relative overflow-hidden">
@@ -272,7 +272,7 @@ export default function HomePage() {
         {/* Key Benefits */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">
-            Why Choose LLM Compare?
+            Why Choose LLM output reconciler?
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
@@ -348,7 +348,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <p className="text-yellow-700 dark:text-yellow-300 mb-4">
-              To use LLM Compare, you'll need API keys from the providers you want to test. Get your keys from:
+              To use LLM output reconciler, you'll need API keys from the providers you want to test. Get your keys from:
             </p>
             <div className="grid md:grid-cols-2 gap-4">
               <div>

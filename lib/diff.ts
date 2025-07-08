@@ -439,17 +439,6 @@ function generateImprovedJsonDiffHtml(goldenParsed: any, outputParsed: any, gold
   return textDiff.diffHtml
 }
 
-function generateJsonDiffHtml(golden: string, output: string, normalizedGolden: any, normalizedOutput: any): string {
-  // If both are valid JSON, show a structural diff
-  if (normalizedGolden && normalizedOutput) {
-    return generateStructuralDiffHtml(normalizedGolden, normalizedOutput)
-  }
-  
-  // Fall back to text diff for invalid JSON
-  const textDiff = calculateDiff(golden, output)
-  return textDiff.diffHtml
-}
-
 // LCS-BASED ARRAY DIFFING FOR BETTER ACCURACY
 interface ArrayDiffOperation {
   type: 'equal' | 'added' | 'removed' | 'moved'

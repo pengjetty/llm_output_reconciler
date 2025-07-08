@@ -3,7 +3,7 @@
 import { generateText, type CoreMessage } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { anthropic } from "@ai-sdk/anthropic"
-import { google, createGoogleGenerativeAI } from "@ai-sdk/google"
+import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { xai } from "@ai-sdk/xai"
 import type { ModelConfig, RunResult, StoredApiKeys } from "@/lib/types"
 import { calculateDiff, calculateSemanticSimilarity, calculateLineDiff, calculateJsonDiff } from "@/lib/diff"
@@ -40,9 +40,6 @@ export async function runComparison(
   selectedModels: ModelConfig[],
   apiKeys: StoredApiKeys
 ): Promise<RunResult[]> {
-  const total = selectedModels.length
-  let completed = 0
-
   // Create tasks for parallel execution
   const tasks = selectedModels.map((modelConfig) => 
     runSingleModel(modelConfig, prompt, imageInput, goldenCopy, apiKeys)
@@ -62,7 +59,6 @@ export async function runComparison(
 
   // Process results and handle failures
   const processedResults: RunResult[] = results.map((result, index) => {
-    completed++
     const modelConfig = selectedModels[index]
 
     if (result.status === 'fulfilled') {

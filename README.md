@@ -1,4 +1,4 @@
-# Model Performance Comparison Tool
+# LLM Output Reconciler
 
 A powerful web application for comparing outputs from multiple Large Language Models (LLMs) against a golden copy reference. Built with Next.js 15, TypeScript, and shadcn/ui components.
 
@@ -50,7 +50,7 @@ A powerful web application for comparing outputs from multiple Large Language Mo
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd model_performance_comparison
+cd llm_output_reconcilier
 ```
 
 2. Install dependencies:

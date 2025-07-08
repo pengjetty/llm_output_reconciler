@@ -131,7 +131,7 @@ async function runSingleModel(
 
     const executionTime = Date.now() - startTime
     
-    const diffResult = calculateDiff(goldenCopy, text)
+    const wordDiffResult = calculateDiff(goldenCopy, text)
     const lineDiffResult = calculateLineDiff(goldenCopy, text)
     const jsonDiffResult = calculateJsonDiff(goldenCopy, text)
     const semanticSimilarity = calculateSemanticSimilarity(goldenCopy, text)
@@ -139,19 +139,19 @@ async function runSingleModel(
     // Determine the default similarity to match the UI's default diff method
     // Force JSON mode if golden copy is JSON, otherwise use word-level diff
     const isGoldenCopyJson = isValidJson(goldenCopy)
-    const defaultSimilarity = isGoldenCopyJson ? jsonDiffResult.similarity : diffResult.similarity
+    const defaultSimilarity = isGoldenCopyJson ? jsonDiffResult.similarity : wordDiffResult.similarity
 
     return {
       model: model,
       provider: provider,
       output: text,
-      diffScore: diffResult.diffScore,
-      diffHtml: diffResult.diffHtml,
+      diffScore: wordDiffResult.diffScore,
+      diffHtml: wordDiffResult.diffHtml,
       error: false,
       similarity: defaultSimilarity,
-      levenshteinDistance: diffResult.levenshteinDistance,
-      wordCount: diffResult.wordCount,
-      changes: diffResult.changes,
+      levenshteinDistance: wordDiffResult.levenshteinDistance,
+      wordCount: wordDiffResult.wordCount,
+      changes: wordDiffResult.changes,
       semanticSimilarity: semanticSimilarity,
       executionTime: executionTime,
       // Line-based diff data

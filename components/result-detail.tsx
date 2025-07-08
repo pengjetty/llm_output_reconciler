@@ -39,10 +39,12 @@ export function ResultDetail({
   }, [associatedTest?.goldenCopy])
   
   // Force JSON mode if golden copy is JSON, otherwise use user preference
-  const effectiveDiffMode = isGoldenCopyJson ? 'json' : diffMode
+  // If golden copy is not JSON and user selected JSON, fall back to word diff
+  const effectiveDiffMode = isGoldenCopyJson ? 'json' : (diffMode === 'json' && !isGoldenCopyJson ? 'word' : diffMode)
   
   // Force normalized view if golden copy is JSON, otherwise use user preference
-  const effectiveViewMode = isGoldenCopyJson ? 'normalized' : viewMode
+  // If golden copy is not JSON and user selected normalized, fall back to raw
+  const effectiveViewMode = isGoldenCopyJson ? 'normalized' : (viewMode === 'normalized' && !isGoldenCopyJson ? 'raw' : viewMode)
 
   const copyToClipboard = async (text: string, itemId: string) => {
     try {
@@ -324,7 +326,9 @@ export function ResultDetail({
                   >
                     <option value="word">Word-level</option>
                     <option value="line">Line-based</option>
-                    <option value="json">JSON-aware</option>
+                    <option value="json" disabled={!isGoldenCopyJson}>
+                      JSON-aware{!isGoldenCopyJson ? ' (disabled - golden copy is not valid JSON)' : ''}
+                    </option>
                   </select>
                 )}
               </div>
@@ -348,7 +352,9 @@ export function ResultDetail({
                     className="text-sm border rounded px-3 py-1.5 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                   >
                     <option value="raw">Raw Output</option>
-                    <option value="normalized">Normalized JSON</option>
+                    <option value="normalized" disabled={!isGoldenCopyJson}>
+                      Normalized JSON{!isGoldenCopyJson ? ' (disabled - golden copy is not valid JSON)' : ''}
+                    </option>
                   </select>
                 )}
               </div>
@@ -356,7 +362,7 @@ export function ResultDetail({
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {isGoldenCopyJson 
                 ? "JSON diff and normalized view auto-selected because golden copy is valid JSON"
-                : "Changes affect ranking and all model comparisons"
+                : "JSON diff and normalized view disabled because golden copy is not valid JSON"
               }
             </div>
           </div>
@@ -452,28 +458,29 @@ export function ResultDetail({
                   </div>
 
                   {/* JSON Status Indicator */}
-                  <div className="mb-4 flex justify-end">
-                    <div className="flex items-center space-x-1">
-                      {result.isValidJson ? (
-                        result.isValidJson.output ? (
-                          <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full flex items-center">
-                            ✓ Valid JSON
-                          </span>
+                  {result.isValidJson?.golden && (
+                    <div className="mb-4 flex justify-end">
+                      <div className="flex items-center space-x-1">
+                        {result.isValidJson ? (
+                          result.isValidJson.output ? (
+                            <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full flex items-center">
+                              ✓ Valid JSON
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-full cursor-help"
+                              title={`JSON Parse Error: ${result.parseErrors?.output || 'Invalid JSON syntax. Check for missing quotes, trailing commas, or unescaped characters.'}`}
+                            >
+                              ✗ Invalid JSON
+                            </span>
+                          )
                         ) : (
-                          <span 
-                            className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-full cursor-help"
-                            title={`JSON Parse Error: ${result.parseErrors?.output || 'Invalid JSON syntax. Check for missing quotes, trailing commas, or unescaped characters.'}`}
-                          >
-                            ✗ Invalid JSON
+                          <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">
+                            No JSON Data
                           </span>
-                        )
-                      ) : (
-                        <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">
-                          No JSON Data
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                        )}
+                      </div>
+                    </div>)}
 
                   {/* Side-by-side Comparison */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

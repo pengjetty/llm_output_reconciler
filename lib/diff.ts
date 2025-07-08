@@ -602,29 +602,50 @@ export function calculateJsonDiff(golden: string, output: string): JsonDiffResul
   const goldenValid = isValidJson(golden)
   const outputValid = isValidJson(output)
   
+  // If golden copy is not valid JSON, skip JSON parsing entirely
+  if (!goldenValid) {
+    return {
+      diffScore: NaN,
+      similarity: NaN,
+      diffHtml: "",
+      normalizedGolden: golden,
+      normalizedOutput: output,
+      isValidJson: { golden: false, output: false },
+      parseErrors: { 
+        golden: "", 
+        output: "" 
+      },
+      changes: {
+        structuralChanges: 0,
+        valueChanges: NaN,
+        additions: NaN,
+        removals: NaN
+      }
+    }
+  }
+  
   // Parse and normalize JSON (with error capture)
   const goldenNorm = normalizeJson(golden)
   const outputNorm = normalizeJson(output)
   
-  // If neither is valid JSON, fall back to text diff
-  if (!goldenValid && !outputValid) {
-    const textDiff = calculateDiff(golden, output)
+  // If output is not valid JSON, fall back to text diff
+  if (!outputValid) {
     return {
-      diffScore: textDiff.diffScore,
-      similarity: textDiff.similarity,
-      diffHtml: textDiff.diffHtml,
+      diffScore: NaN,
+      similarity: NaN,
+      diffHtml: "",
       normalizedGolden: golden,
       normalizedOutput: output,
-      isValidJson: { golden: false, output: false },
+      isValidJson: { golden: true, output: false },
       parseErrors: { 
         golden: goldenNorm.error, 
         output: outputNorm.error 
       },
       changes: {
         structuralChanges: 0,
-        valueChanges: textDiff.changes.modified,
-        additions: textDiff.changes.added,
-        removals: textDiff.changes.removed
+        valueChanges: NaN,
+        additions: NaN,
+        removals: NaN
       }
     }
   }

@@ -19,6 +19,68 @@ import { HistorySidebar } from "@/components/history-sidebar"
 import { ResultDetail } from "@/components/result-detail"
 import { useRouter } from "next/navigation"
 
+// Loading skeleton component
+function RunLoadingSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="space-y-2">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse"></div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {/* Performance Summary Skeleton */}
+        <div className="mb-6 p-4 border rounded-md bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950">
+          <div className="flex items-center mb-3">
+            <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mr-2"></div>
+            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center space-x-2 p-2 bg-white dark:bg-gray-800 rounded-md">
+                <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Controls Skeleton */}
+        <div className="mb-6 p-4 border rounded-md bg-gray-50 dark:bg-gray-800">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse mb-3"></div>
+          <div className="flex items-center space-x-6">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Model Results Skeleton */}
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="border rounded-md p-4">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                </div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ResultsPageContent() {
   const { toast } = useToast()
   const router = useRouter()
@@ -26,6 +88,7 @@ function ResultsPageContent() {
   const [runs, setRuns] = useState<Run[]>([])
   const [tests, setTests] = useState<Test[]>([])
   const [selectedRun, setSelectedRun] = useState<Run | null>(null)
+  const [isLoadingRun, setIsLoadingRun] = useState(false)
   const [storageUsage, setStorageUsage] = useState(0)
   // Best similarity score for the selected run (updated by ResultDetail)
   const [bestSimilarityScore, setBestSimilarityScore] = useState<number | null>(null)
@@ -58,6 +121,7 @@ function ResultsPageContent() {
 
       const runId = searchParams.get("runId")
       if (runId) {
+        setIsLoadingRun(true)
         // Re-load runs here to ensure the latest data is used for selection
         // This is safe because updateAllLocalData is memoized and won't cause a loop.
         const currentRuns = await loadRuns() // Get fresh data for selection
@@ -65,7 +129,10 @@ function ResultsPageContent() {
         if (runToSelect) {
           setSelectedRun(runToSelect)
           setBestSimilarityScore(null) // Reset best similarity when changing runs
+          // Allow React to process the state change before clearing loading
+          setTimeout(() => setIsLoadingRun(false), 100)
         } else {
+          setIsLoadingRun(false)
           toast({
             title: "Run Not Found",
             description: "The requested run could not be found in history.",
@@ -76,6 +143,7 @@ function ResultsPageContent() {
         // If no runId in URL, clear any previously selected run
         setSelectedRun(null)
         setBestSimilarityScore(null)
+        setIsLoadingRun(false)
       }
     }
     
@@ -83,8 +151,11 @@ function ResultsPageContent() {
   }, [searchParams, updateAllLocalData, toast]) // `updateAllLocalData` is a dependency, but it's memoized
 
   const handleLoadRun = (run: Run) => {
+    setIsLoadingRun(true)
     setSelectedRun(run)
     setBestSimilarityScore(null) // Reset best similarity when changing runs
+    // Allow React to process the state change before clearing loading
+    setTimeout(() => setIsLoadingRun(false), 100)
   }
 
   const handleDeleteRun = async (id: string) => {
@@ -177,7 +248,9 @@ function ResultsPageContent() {
         bestSimilarityScore={bestSimilarityScore}
       />
       <main className="flex-1 p-6 md:p-8 lg:p-10 overflow-auto">
-        {selectedRun ? (
+        {isLoadingRun ? (
+          <RunLoadingSkeleton />
+        ) : selectedRun ? (
           <ResultDetail 
             run={selectedRun} 
             tests={tests}

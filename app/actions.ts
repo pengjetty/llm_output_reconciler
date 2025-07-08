@@ -7,30 +7,9 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { xai } from "@ai-sdk/xai"
 import type { ModelConfig, RunResult, StoredApiKeys } from "@/lib/types"
 import { calculateDiff, calculateSemanticSimilarity, calculateLineDiff, calculateJsonDiff } from "@/lib/diff"
+import { isValidJson } from "@/lib/json-utils"
 
-// Helper function to check if a string is valid JSON
-function isValidJson(str: string): boolean {
-  try {
-    JSON.parse(str.trim())
-    return true
-  } catch {
-    try {
-      // Try with markdown formatting removed
-      const extracted = str.trim()
-        .replace(/^```(?:json|javascript|js)?\s*\n?/i, '')
-        .replace(/\n?```\s*$/i, '')
-        .trim()
-      if (extracted.startsWith('`') && extracted.endsWith('`')) {
-        JSON.parse(extracted.slice(1, -1).trim())
-      } else {
-        JSON.parse(extracted)
-      }
-      return true
-    } catch {
-      return false
-    }
-  }
-}
+// Helper function to check if a string is valid JSON - now imported from json-utils
 
 // Enhanced parallel processing with real-time feedback
 export async function runComparison(

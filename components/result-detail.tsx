@@ -10,31 +10,9 @@ import { Trophy, Clock, Target, BarChart3, Copy, Check } from "lucide-react"
 import type { Run, Test } from "@/lib/types"
 import { getDiffSummary, calculateDiff, calculateLineDiff, calculateJsonDiff } from "@/lib/diff"
 
-// Helper function to check if a string is valid JSON
-function isValidJson(str: string): boolean {
-  try {
-    JSON.parse(str.trim())
-    return true
-  } catch {
-    try {
-      // Try with markdown formatting removed
-      const extracted = str.trim()
-        .replace(/^```(?:json|javascript|js)?\s*\n?/i, '')
-        .replace(/\n?```\s*$/i, '')
-        .trim()
-      if (extracted.startsWith('`') && extracted.endsWith('`')) {
-        JSON.parse(extracted.slice(1, -1).trim())
-      } else {
-        JSON.parse(extracted)
-      }
-      return true
-    } catch {
-      return false
-    }
-  }
-}
 import { useState, useMemo, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { isValidJson } from "@/lib/json-utils"
 
 interface ResultDetailProps {
   run: Run
